@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "239580414059",
+    "project_id": "miupcv3",
+    "storage_bucket": "miupcv3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:239580414059:android:c89582713d45db6336312e",
+        "android_client_info": {
+          "package_name": "mmeo.system.pne"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC0qiFxFltZwyjRLyHVzcXWI7jbweu5E2A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

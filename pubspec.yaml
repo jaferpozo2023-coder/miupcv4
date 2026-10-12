@@ -1,0 +1,77 @@
+name: pne
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  get: ^4.7.3
+  google_fonts: ^9.0.0
+  equatable: ^3.0.0
+  http: ^1.6.0
+  local_auth: ^3.0.2
+  shared_preferences: ^2.5.6
+  awesome_dialog: ^3.3.0
+  url_launcher: ^6.3.3
+  package_info_plus: ^10.2.2
+  connectivity_plus: ^7.3.2
+  device_info_plus: ^13.3.0
+  network_info_plus: ^8.2.2
+  cached_network_image: ^4.0.4
+  flutter_speed_dial: ^7.0.0
+  permission_handler: ^13.0.2
+  image: ^4.10.1
+  image_picker: ^1.2.4
+  share_plus: ^13.3.1
+  firebase_auth: ^6.7.0
+  file_picker: ^13.1.0
+  google_sign_in: ^7.2.0
+  flutter_map: ^8.3.2
+  flutter_map_location_marker: ^10.3.0
+  latlong2: ^0.9.1
+  flutter_polyline_points_plus: ^3.0.0
+  polylabel: ^1.0.1
+  flutter_svg: ^2.3.0
+  flutter_dotenv: ^6.0.1
+
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.7.0
+  firebase_in_app_messaging: ^0.9.4
+
+  another_flushbar: ^2.2.4
+
+  location: ^10.0.2
+  geocoding: ^5.0.0
+  geolocator: ^14.0.1
+
+  dropdown_search: ^8.1.0
+  material_ui: ^1.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon_mi_upc.png"
+  remove_alpha_ios: true
+  adaptive_icon_background: "#195BA6"
+  adaptive_icon_foreground: "assets/icon/icon_mi_upc.png"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env
+    - assets/img/
+    - assets/icon/
