@@ -6,8 +6,21 @@ class MenuPrincipalPage extends GetView<MenuPrincipalController> {
   @override
   Widget build(BuildContext context) => WorkAreaMenuPageWidget(
     peticionServer: controller.peticionServerState,
-    contenido: SingleChildScrollView(
+    contenido:
+ RefreshIndicator(
+    triggerMode: RefreshIndicatorTriggerMode.onEdge,
+    onRefresh: () async {
+      debugPrint('🔄 REFRESH ACTIVADO');
+      await controller.cargarDatosLista();
+    },
+    color: const Color(0xFF10476B),
+    backgroundColor: Colors.white,
+    displacement: 45,
+    child: SingleChildScrollView(
       key: const ValueKey('menu-scroll'),
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       child: Center(
         child: ConstrainedBox(
@@ -24,6 +37,8 @@ class MenuPrincipalPage extends GetView<MenuPrincipalController> {
         ),
       ),
     ),
+  ),
+
   );
 
   Widget _cabecera() => Obx(() {
