@@ -13,7 +13,9 @@ enum Ambiente { desarrollo, prueba, produccion }
 
 class AppConfig {
 
-  static  Ambiente AmbienteUrl=Ambiente.desarrollo;
+  static  Ambiente AmbienteUrl=Ambiente.prueba;
+
+
 
   static  String formatoFecha =  'yyyy-MM-dd';
   static  String formatoHora =  'HH:mm';

@@ -15,6 +15,15 @@ class CiudadanoAlerta {
   final String longitud;
   final int idGenEstado;
 
+  bool get esHotel {
+    final codigo = codigoInstitucion.trim().toUpperCase();
+    final nombre = institucion.trim().toUpperCase();
+    final tipo = tipoUsuario.trim().toUpperCase();
+    return codigo.startsWith('HOT-') ||
+        nombre.contains('HOTEL') ||
+        tipo.contains('HOTEL');
+  }
+
   const CiudadanoAlerta({
     required this.idDgoPersonasAlertaApp,
     required this.idGenPersona,

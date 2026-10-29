@@ -2,62 +2,70 @@ part of '../controllers.dart';
 
 class MenuPrincipalController extends GetxController
     with WidgetsBindingObserver {
-  // ======================= ⚙️ ESTADOS ==========================
+  static const String _prefPermisoAlertasBase =
+      'mi_upc_permiso_alertas_ciudadanas_v1';
+
   final RxBool peticionServerState = false.obs;
   final Rx<Uint8List?> fotoPerfilBytes = Rx<Uint8List?>(null);
   final RxString userPref = ''.obs;
   final RxString metodoRegistro = ''.obs;
-  final CheckInternetConnection internetChecker;
-
-  MenuPrincipalController({CheckInternetConnection? internetChecker})
-    : internetChecker = internetChecker ?? CheckInternetConnection();
-  StreamSubscription<ConnectionStatus>? connectionSubscription;
-  StreamSubscription<RemoteMessage>? _mensajeSubscription;
-  StreamSubscription<RemoteMessage>? _abrirMensajeSubscription;
-  bool _cargandoModulos = false;
-  bool _respuestaRemotaModulosValida = false;
-  bool _estuvoEnSegundoPlano = false;
-  int _consultaPermisos = 0;
-  final Rx<ConnectionStatus> status = ConnectionStatus.online.obs;
   final RxString correoUsuario = ''.obs;
   final RxString telefonoUsuario = ''.obs;
   final RxString documentoUsuario = ''.obs;
-  // ======================= 🧩 DEPENDENCIAS ======================
+  final Rx<ConnectionStatus> status = ConnectionStatus.online.obs;
+  final RxList<Modulo> listaModulo = <Modulo>[].obs;
+  final RxString errorCargaModulos = ''.obs;
+  final RxBool mostrarModuloAlertas = false.obs;
+  final RxBool permisoAlertasInicializado = false.obs;
+  final RxBool permisoNotificacionesInicializado = false.obs;
+  final RxBool permisoNotificacionesActivo = false.obs;
+  final CheckInternetConnection internetChecker;
   final GpsController gpsController = Get.find<GpsController>();
   final ModulosRepository _apiModulosRepository = Get.find<ModulosRepository>();
   final LocalStoreImpl _localStoreImpl = Get.find<LocalStoreImpl>();
   final PermisosMiUpcRepository _permisosMiUpc = Get.find();
-  final mostrarModuloAlertas = false.obs;
-  // ======================= 🗂️ DATOS ============================
-  final RxList<Modulo> listaModulo = <Modulo>[].obs;
-  final RxString errorCargaModulos = ''.obs;
+  StreamSubscription<ConnectionStatus>? connectionSubscription;
+  late final Future<void> _cargaLocalInicial;
+  bool _cargandoModulos = false;
+  bool _recargarModulosPendiente = false;
+  bool _respuestaRemotaModulosValida = false;
+  bool _estuvoEnSegundoPlano = false;
+  ConnectionStatus? _ultimoEstadoConexion;
+  int _consultaPermisos = 0;
+  String _documentoPermisos = '';
 
-  Rx<Modulo> datosModulos = Modulo(
-    descripcionModulo: '',
-    imgBase64: '',
-    idGenEstado: 0,
-    idUpcModulosMovil: 0,
-    imagenModulo: '',
-    ordenModulo: 0,
-    tituloModulo: '',
-  ).obs;
+  MenuPrincipalController({CheckInternetConnection? internetChecker})
+    : internetChecker = internetChecker ?? CheckInternetConnection();
 
-  Rx<GaleryCameraModel?> mGaleryCameraModel = Rx<GaleryCameraModel?>(null);
-
-  String acuerdo = "";
-
-  // =============================================================
-  // 🔹 CICLO DE VIDA
-  // =============================================================
   @override
   void onInit() {
     super.onInit();
     WidgetsBinding.instance.addObserver(this);
-    _cargarModulosOffline();
-    cargarDatosUsuario();
-    cargarFotoPerfil();
+    _cargaLocalInicial = _inicializarDatosLocales();
+    unawaited(cargarFotoPerfil());
     connectionStatusController();
     unawaited(_initNotificaciones());
+  }
+
+  Future<void> _inicializarDatosLocales() async {
+    // Primero recuperamos usuario + permiso cacheado y después publicamos
+    // los módulos locales. Así evitamos el efecto visual 4 -> 5.
+    await cargarDatosUsuario();
+    if (isClosed) return;
+    await _cargarModulosOffline();
+  }
+
+  @override
+  void onReady() {
+    super.onReady();
+    PushNotificationService.instance.markNavigationReady();
+    unawaited(_inicializarModulos());
+  }
+
+  Future<void> _inicializarModulos() async {
+    await _cargaLocalInicial;
+    if (isClosed) return;
+    await cargarDatosLista();
   }
 
   @override
@@ -65,9 +73,12 @@ class MenuPrincipalController extends GetxController
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       _estuvoEnSegundoPlano = true;
-    } else if (state == AppLifecycleState.resumed && _estuvoEnSegundoPlano) {
+      return;
+    }
+    if (state == AppLifecycleState.resumed && _estuvoEnSegundoPlano) {
       _estuvoEnSegundoPlano = false;
       unawaited(cargarDatosUsuario());
+      unawaited(actualizarPermisoNotificaciones());
     }
   }
 
@@ -76,48 +87,34 @@ class MenuPrincipalController extends GetxController
     WidgetsBinding.instance.removeObserver(this);
     _consultaPermisos++;
     connectionSubscription?.cancel();
-    _mensajeSubscription?.cancel();
-    _abrirMensajeSubscription?.cancel();
     internetChecker.close();
     super.onClose();
   }
 
-  // =============================================================
-  // 🧠 INICIALIZACIÓN Y CONFIGURACIÓN
-  // =============================================================
   Future<void> cargarFotoPerfil() async {
     try {
-      final bytes = await _localStoreImpl.getFoto();
-      if (bytes != null) {
-        debugPrint(
-          "🖼️ Foto de perfil cargada correctamente (${bytes.length} bytes)",
-        );
-        fotoPerfilBytes.value = bytes;
-      } else {
-        fotoPerfilBytes.value = null;
-        debugPrint("⚠️ No se encontró foto de perfil en almacenamiento local.");
-      }
+      fotoPerfilBytes.value = await _localStoreImpl.getFoto();
     } catch (e) {
       fotoPerfilBytes.value = null;
-      debugPrint("❌ Error al cargar foto de perfil: $e");
+      debugPrint('Error cargando foto de perfil: $e');
     }
   }
 
-  // =============================================================
-  // 🌐 CONTROL DE CONEXIÓN
-  // =============================================================
   void connectionStatusController() {
     if (connectionSubscription != null) return;
-
     connectionSubscription = internetChecker.internetStatus().listen((
       newStatus,
     ) {
+      final estadoAnterior = _ultimoEstadoConexion;
+      _ultimoEstadoConexion = newStatus;
       status.value = newStatus;
-      if (newStatus == ConnectionStatus.online) {
-        unawaited(cargarDatosLista());
+      if (newStatus == ConnectionStatus.offline) {
+        if (listaModulo.isEmpty) unawaited(_cargarModulosOffline());
+        return;
+      }
+      if (estadoAnterior == ConnectionStatus.offline) {
+        unawaited(cargarDatosLista(forzar: true));
         unawaited(actualizarPermisosAlertas());
-      } else if (listaModulo.isEmpty) {
-        unawaited(_cargarModulosOffline());
       }
     });
   }
@@ -136,60 +133,65 @@ class MenuPrincipalController extends GetxController
             'No hay módulos guardados y no se detectó conexión a Internet.';
       }
     } catch (error, stackTrace) {
-      debugPrint('Error al cargar los módulos guardados: $error\n$stackTrace');
-      if (listaModulo.isEmpty) {
+      debugPrint('Error al cargar módulos guardados: $error\n$stackTrace');
+      if (listaModulo.isEmpty)
         errorCargaModulos.value =
             'No fue posible cargar los módulos guardados.';
-      }
     }
   }
 
-  // =============================================================
-  // 📦 CARGA DE MÓDULOS
-  // =============================================================
-  Future<void> cargarDatosLista() async {
-    if (_cargandoModulos) return;
+  Future<void> cargarDatosLista({bool forzar = false}) async {
+    if (_cargandoModulos) {
+      if (forzar) _recargarModulosPendiente = true;
+      return;
+    }
     _cargandoModulos = true;
-
+    final mostrarCargaGlobal = listaModulo.isEmpty;
+    if (mostrarCargaGlobal) {
+      errorCargaModulos.value = '';
+      peticionServerState.value = true;
+    }
     try {
-      peticionServerState(true);
-
       final lista = await _apiModulosRepository.buscaListaModulos();
-
       if (lista.isEmpty) {
-        await _cargarModulosOffline();
-        if (listaModulo.isEmpty) {
+        if (listaModulo.isEmpty) await _cargarModulosOffline();
+        if (listaModulo.isEmpty)
           errorCargaModulos.value =
               'No hay módulos disponibles en este momento.';
-        }
         return;
       }
-
       _respuestaRemotaModulosValida = true;
       final listaFiltrada = _ordenarModulos(lista);
-
       listaModulo.assignAll(listaFiltrada);
       errorCargaModulos.value = listaFiltrada.isEmpty
           ? 'No hay módulos disponibles para esta cuenta.'
           : '';
-
-      await _localStoreImpl.setDatosListaModulos(listModulos: listaFiltrada);
+      unawaited(_guardarModulosCache(listaFiltrada));
     } on ServerException catch (error) {
       debugPrint('No se pudieron actualizar los módulos: ${error.cause}');
-      await _cargarModulosOffline();
-      if (listaModulo.isEmpty) {
-        errorCargaModulos.value = 'No se pudieron cargar los módulos. Comprueba tu conexión e inténtalo de nuevo.';
-      }
+      if (listaModulo.isEmpty) await _cargarModulosOffline();
+      if (listaModulo.isEmpty) errorCargaModulos.value = 'No se pudieron cargar los módulos. Comprueba tu conexión e inténtalo de nuevo.';
     } catch (error, stackTrace) {
-      debugPrint('Error inesperado al cargar los módulos: $error\n$stackTrace');
-      await _cargarModulosOffline();
-      if (listaModulo.isEmpty) {
+      debugPrint('Error inesperado al cargar módulos: $error\n$stackTrace');
+      if (listaModulo.isEmpty) await _cargarModulosOffline();
+      if (listaModulo.isEmpty)
         errorCargaModulos.value =
             'No se pudieron cargar los módulos. Inténtalo de nuevo.';
-      }
     } finally {
-      peticionServerState(false);
+      if (mostrarCargaGlobal) peticionServerState.value = false;
       _cargandoModulos = false;
+      if (_recargarModulosPendiente && !isClosed) {
+        _recargarModulosPendiente = false;
+        unawaited(cargarDatosLista());
+      }
+    }
+  }
+
+  Future<void> _guardarModulosCache(List<Modulo> modulos) async {
+    try {
+      await _localStoreImpl.setDatosListaModulos(listModulos: modulos);
+    } catch (e) {
+      debugPrint('No se pudo actualizar la caché de módulos: $e');
     }
   }
 
@@ -220,32 +222,101 @@ class MenuPrincipalController extends GetxController
         .replaceAll('Ñ', 'N');
   }
 
-  // =============================================================
-  // 🧍‍♂️ PERMISOS Y ALERTAS
-  // =============================================================
-  Future<void> actualizarPermisosAlertas() async {
-    final consulta = ++_consultaPermisos;
-    final documento = documentoUsuario.value.trim();
-    mostrarModuloAlertas.value = false;
-    if (documento.isEmpty || isClosed) return;
+  String _keyPermisoAlertas(String documento) =>
+      '${_prefPermisoAlertasBase}_${documento.trim()}';
 
+  void _sincronizarDocumentoPermisos(String documento) {
+    if (documento == _documentoPermisos) return;
+    _consultaPermisos++;
+    _documentoPermisos = documento;
+    // Al cambiar de ciudadano no conservamos visualmente el permiso anterior.
+    // Inmediatamente después se recupera la caché de la nueva cédula.
+    mostrarModuloAlertas.value = false;
+    permisoAlertasInicializado.value = false;
+  }
+
+  Future<void> _cargarPermisoAlertasLocal(String documento) async {
+    final doc = documento.trim();
+    if (doc.isEmpty) {
+      mostrarModuloAlertas.value = false;
+      permisoAlertasInicializado.value = true;
+      return;
+    }
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = _keyPermisoAlertas(doc);
+      final existeCache = prefs.containsKey(key);
+      final permitido = existeCache ? (prefs.getBool(key) ?? false) : false;
+      if (documentoUsuario.value.trim().isNotEmpty &&
+          doc != documentoUsuario.value.trim())
+        return;
+      mostrarModuloAlertas.value = permitido;
+      permisoAlertasInicializado.value = existeCache;
+      debugPrint(
+        'MENÚ -> permiso alertas local [$doc]: $permitido / cache: $existeCache',
+      );
+    } catch (e) {
+      mostrarModuloAlertas.value = false;
+      permisoAlertasInicializado.value = false;
+      debugPrint('MENÚ -> error leyendo permiso local: $e');
+    }
+  }
+
+  Future<void> _guardarPermisoAlertasLocal(
+    String documento,
+    bool permitido,
+  ) async {
+    final doc = documento.trim();
+    if (doc.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyPermisoAlertas(doc), permitido);
+      debugPrint('MENÚ -> permiso alertas guardado [$doc]: $permitido');
+    } catch (e) {
+      debugPrint('MENÚ -> error guardando permiso local: $e');
+    }
+  }
+
+  Future<void> actualizarPermisosAlertas() async {
+    if (isClosed) return;
+    final documento = documentoUsuario.value.trim();
+    _sincronizarDocumentoPermisos(documento);
+    final consulta = ++_consultaPermisos;
+    if (documento.isEmpty) {
+      mostrarModuloAlertas.value = false;
+      permisoAlertasInicializado.value = true;
+      return;
+    }
+    try {
+      debugPrint('MENÚ -> consultando permiso remoto para $documento');
       final respuesta = await _permisosMiUpc.consultarPermisosMiUpc(
         documento: documento,
       );
       if (isClosed ||
           consulta != _consultaPermisos ||
-          documento != documentoUsuario.value.trim()) {
+          documento != documentoUsuario.value.trim())
+        return;
+      // Si el servicio responde con error conservamos el último permiso cacheado.
+      if (respuesta.codeError != 0) {
+        debugPrint(
+          'MENÚ -> consulta de permisos respondió código ${respuesta.codeError}',
+        );
+        permisoAlertasInicializado.value = true;
         return;
       }
-      if (respuesta.codeError != 0) return;
-      mostrarModuloAlertas.value = respuesta.datos.any(
+      final permitido = respuesta.datos.any(
         (permiso) =>
             permiso.documento == documento &&
             permiso.tienePermiso &&
             (permiso.permisoCiudadano || permiso.permisoPolicial),
       );
+      mostrarModuloAlertas.value = permitido;
+      permisoAlertasInicializado.value = true;
+      unawaited(_guardarPermisoAlertasLocal(documento, permitido));
+      debugPrint('MENÚ -> permiso alertas servidor [$documento]: $permitido');
     } catch (error) {
+      // Ante una falla de red mantenemos la última validación local.
+      permisoAlertasInicializado.value = true;
       debugPrint('No se pudieron consultar los permisos del menú: $error');
     }
   }
@@ -259,79 +330,74 @@ class MenuPrincipalController extends GetxController
   Future<void> verificarGps({Modulo? modulo}) async {
     final gpsActivo = await gpsController.verificarGPS();
     if (!gpsActivo) return;
-
     gpsController.iniciarSeguimiento();
-
     if (AppConfig.ubicacion.value.latitude == 0.0) {
       DialogosAwesome.getInformation(
-        descripcion: "Las coordenadas aún no están listas. Vuelva a intentar.",
+        descripcion: 'Las coordenadas aún no están listas. Vuelva a intentar.',
       );
       return;
     }
-
     gpsController.cancelarSeguimiento();
-
-    final data = {"id": "0", "imagen": modulo?.imgBase64 ?? ""};
-
-    Get.toNamed(AppRoutes.MAPAUPC, parameters: data);
+    Get.toNamed(
+      AppRoutes.MAPAUPC,
+      parameters: {'id': '0', 'imagen': modulo?.imgBase64 ?? ''},
+    );
   }
 
-  // =============================================================
-  // 🔔 NOTIFICACIONES (FCM)
-  // =============================================================
   Future<void> _initNotificaciones() async {
-    if (Firebase.apps.isEmpty) return;
     try {
-      _mensajeSubscription = FirebaseMessaging.onMessage.listen((message) {
-        unawaited(_recibirAlerta(message));
-      });
-      _abrirMensajeSubscription = FirebaseMessaging.onMessageOpenedApp.listen((
-        message,
-      ) {
-        unawaited(_recibirAlerta(message));
-      });
-      final inicial = await FirebaseMessaging.instance.getInitialMessage();
-      if (inicial != null) await _recibirAlerta(inicial);
-    } catch (e) {
-      debugPrint('No fue posible iniciar las notificaciones: $e');
+      if (Firebase.apps.isNotEmpty) {
+        await PushNotificationService.instance.requestPermissionAndSubscribe();
+      }
+    } catch (error) {
+      debugPrint('No fue posible autorizar las notificaciones: $error');
+    } finally {
+      await actualizarPermisoNotificaciones();
     }
   }
 
-  Future<void> _recibirAlerta(RemoteMessage message) async {
-    try {
-      final idAlerta = int.tryParse(
-        message.data['idDgoAlertasMovilCiu']?.toString() ?? '',
-      );
-      if (idAlerta == null || idAlerta <= 0) return;
+  bool get puedeMostrarModuloAlertas =>
+      mostrarModuloAlertas.value &&
+      permisoAlertasInicializado.value &&
+      permisoNotificacionesInicializado.value &&
+      permisoNotificacionesActivo.value;
 
-      if (Get.currentRoute == AppRoutes.alertasCiudadanas &&
-          Get.isRegistered<AlertasCiudadanasController>()) {
-        await Get.find<AlertasCiudadanasController>().prepararAlertaNotificada(
-          idAlerta,
-        );
-      } else {
-        unawaited(
-          Get.toNamed(
-            AppRoutes.alertasCiudadanas,
-            parameters: {'alerta': idAlerta.toString(), 'notificacion': 'true'},
-          ),
-        );
+  Future<bool> actualizarPermisoNotificaciones() async {
+    if (isClosed) return false;
+    if (Firebase.apps.isEmpty) {
+      permisoNotificacionesActivo.value = false;
+      permisoNotificacionesInicializado.value = true;
+      return false;
+    }
+
+    try {
+      final settings = await FirebaseMessaging.instance
+          .getNotificationSettings();
+      final activo =
+          settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional;
+      if (!isClosed) {
+        permisoNotificacionesActivo.value = activo;
+        permisoNotificacionesInicializado.value = true;
       }
-    } catch (e) {
-      debugPrint('No se pudo procesar la notificación de alerta: $e');
+      return activo;
+    } catch (error, stackTrace) {
+      debugPrint(
+        'No fue posible verificar el permiso de notificaciones: $error\n$stackTrace',
+      );
+      if (!isClosed) {
+        permisoNotificacionesActivo.value = false;
+        permisoNotificacionesInicializado.value = true;
+      }
+      return false;
     }
   }
 
   String obtenerSaludo() {
     final hora = DateTime.now().hour;
-
-    if (hora >= 5 && hora < 12) {
-      return 'Buenos días';
-    } else if (hora >= 12 && hora < 18) {
-      return 'Buenas tardes';
-    } else {
-      return 'Buenas noches';
-    }
+    if (hora >= 5 && hora < 12) return 'Buenos días';
+    if (hora >= 12 && hora < 18) return 'Buenas tardes';
+    return 'Buenas noches';
   }
 
   Map<String, dynamic> getMetodoAuthUI(String metodo) {
@@ -339,34 +405,55 @@ class MenuPrincipalController extends GetxController
       case 'google':
         return {
           'icono': Icons.g_mobiledata_rounded,
-          'titulo': 'Autenticado con Google',
-          'subtitulo': 'Acceso social seguro',
+          'titulo': 'Google',
+          'subtitulo': 'Acceso seguro',
           'color': const Color(0xFFDB4437),
         };
       case 'facebook':
         return {
           'icono': Icons.facebook_rounded,
-          'titulo': 'Autenticado con Facebook',
-          'subtitulo': 'Acceso social vinculado',
+          'titulo': 'Facebook',
+          'subtitulo': 'Acceso vinculado',
           'color': const Color(0xFF1877F2),
         };
       default:
         return {
           'icono': Icons.badge_rounded,
-          'titulo': 'Registro manual',
-          'subtitulo': 'Perfil creado localmente',
-          'color': const Color(0xFF00A896),
+          'titulo': 'Perfil local',
+          'subtitulo': 'Identidad registrada',
+          'color': const Color(0xFF00B8A9),
         };
     }
   }
 
   Future<void> cargarDatosUsuario() async {
-    _consultaPermisos++;
-    mostrarModuloAlertas.value = false;
     try {
-      final data = await _localStoreImpl.getDatosUsuarioCompleto();
-      final nombre = await _localStoreImpl.getUserName();
-      userPref.value = nombre.trim();
+      final resultados = await Future.wait<dynamic>([
+        _localStoreImpl.getDatosUsuarioCompleto(),
+        _localStoreImpl.getUserName(),
+        _localStoreImpl.getDatosUsuario(),
+        _localStoreImpl.getDatosMail(),
+        _localStoreImpl.getTelefono(),
+        _localStoreImpl.getMetodoRegistro(),
+      ]);
+      if (isClosed) return;
+      final data = resultados[0] as Map?;
+      final nombreGuardado = (resultados[1] ?? '').toString().trim();
+      final nombreAlterno = (resultados[2] ?? '').toString().trim();
+      final mailAlterno = (resultados[3] ?? '').toString().trim();
+      final telefonoAlterno = (resultados[4] ?? '').toString().trim();
+      final metodo = (resultados[5] ?? '').toString().trim();
+      final documento = (data?['cedula'] ?? '').toString().trim();
+
+      _sincronizarDocumentoPermisos(documento);
+      documentoUsuario.value = documento;
+
+      // Recuperamos el último permiso confirmado para ESTA cédula antes
+      // de que la lista local de módulos sea publicada en pantalla.
+      await _cargarPermisoAlertasLocal(documento);
+      if (isClosed) return;
+
+      userPref.value = nombreGuardado;
       if (userPref.value.isEmpty && data != null) {
         userPref.value = [data['nombre'], data['apellido1'], data['apellido2']]
             .where(
@@ -375,23 +462,19 @@ class MenuPrincipalController extends GetxController
             .join(' ')
             .trim();
       }
-      if (userPref.value.isEmpty) {
-        userPref.value = (await _localStoreImpl.getDatosUsuario()).trim();
-      }
-      documentoUsuario.value = (data?['cedula'] ?? '').toString().trim();
+      if (userPref.value.isEmpty) userPref.value = nombreAlterno;
       correoUsuario.value = (data?['correo'] ?? '').toString().trim();
-      if (correoUsuario.value.isEmpty) {
-        correoUsuario.value = (await _localStoreImpl.getDatosMail()).trim();
-      }
+      if (correoUsuario.value.isEmpty) correoUsuario.value = mailAlterno;
       telefonoUsuario.value = (data?['telefono'] ?? '').toString().trim();
-      if (telefonoUsuario.value.isEmpty) {
-        telefonoUsuario.value = (await _localStoreImpl.getTelefono()).trim();
-      }
-      metodoRegistro.value = (await _localStoreImpl.getMetodoRegistro() ?? '')
-          .trim();
-      await actualizarPermisosAlertas();
-    } catch (e) {
-      debugPrint('No se pudieron cargar los datos del menú: $e');
+      if (telefonoUsuario.value.isEmpty)
+        telefonoUsuario.value = telefonoAlterno;
+      metodoRegistro.value = metodo;
+
+      // La validación remota se realiza en segundo plano y actualiza la caché.
+      unawaited(actualizarPermisosAlertas());
+    } catch (e, stackTrace) {
+      permisoAlertasInicializado.value = true;
+      debugPrint('No se pudieron cargar los datos del menú: $e\n$stackTrace');
     }
   }
 }

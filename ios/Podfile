@@ -36,6 +36,21 @@ target 'Runner' do
   end
 end
 
+# flutter_rotation_sensor 0.3.1 moved its Swift source to the SPM directory,
+# while its podspec still points to Classes. Correct the spec for this project.
+pre_install do |installer|
+  installer.pod_targets.each do |pod|
+    next unless pod.name == 'flutter_rotation_sensor'
+    next unless pod.root_spec.attributes_hash['source_files'] == 'Classes/**/*'
+
+    sources = 'flutter_rotation_sensor/Sources/flutter_rotation_sensor/**/*.swift'
+    root = File.join(__dir__, '.symlinks/plugins/flutter_rotation_sensor/ios')
+    next if Dir.glob(File.join(root, sources)).empty?
+
+    pod.root_spec.source_files = sources
+    pod.remove_instance_variable(:@should_build) if pod.instance_variable_defined?(:@should_build)
+  end
+end
 
 post_install do |installer|
 installer.pods_project.targets.each do |target|

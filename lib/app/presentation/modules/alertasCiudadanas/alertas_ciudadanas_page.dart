@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -9,14 +11,18 @@ import '../../../data/models/detalle_alerta_ciudadana_model.dart';
 import '../../routes/app_routes.dart';
 import '../../widgets/custom_widgets.dart';
 import 'alertas_ciudadanas_controller.dart';
+import 'alertas_generadas_ciudadano_dialog.dart';
+import 'personal_hotel_dialog.dart';
 
-const _navy = Color(0xFF07172D);
-const _blue = Color(0xFF0E3A68);
-const _cyan = Color(0xFF42D9E8);
-const _red = Color(0xFFFF5364);
-const _ink = Color(0xFF12263D);
-const _muted = Color(0xFF64778B);
-const _line = Color(0xFFDCE6EF);
+const _navy = Color(0xFF061D33);
+const _blue = Color(0xFF0A4F73);
+const _blueSoft = Color(0xFF0D6E8A);
+const _cyan = Color(0xFF55DFE8);
+const _red = Color(0xFFED4457);
+const _green = Color(0xFF15966F);
+const _ink = Color(0xFF17324A);
+const _muted = Color(0xFF667C8F);
+const _line = Color(0xFFD8E5ED);
 
 class AlertasCiudadanasPage extends GetView<AlertasCiudadanasController> {
   const AlertasCiudadanasPage({super.key});
@@ -26,46 +32,125 @@ class AlertasCiudadanasPage extends GetView<AlertasCiudadanasController> {
     titleAppBar: 'Centro de alertas',
     btnAtras: true,
     peticionServer: controller.peticionInstitucional,
-    paddin: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+    paddin: const EdgeInsets.fromLTRB(12, 12, 12, 24),
     contenido: Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760),
+        constraints: const BoxConstraints(maxWidth: 900),
         child: Obx(() {
-          if (controller.cargando.value) {
-            return const SizedBox.shrink();
-          }
-          final alertaNotificada = controller.alertaNotificacion.value;
-          if (alertaNotificada != null &&
-              controller.marcarDialogoNotificacionAbierto()) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _mostrarDialogoNotificacion(context, alertaNotificada);
-            });
-          }
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (controller.esCiudadano)
-                _ciudadano(context)
-              else if (controller.esPolicia)
-                _policia()
-              else if (controller.estadoPermisos.value !=
-                  EstadoConsultaPermisos.confirmada)
-                _consultaNoDisponible()
-              else
-                _sinPermiso(),
-              if (controller.error.isNotEmpty &&
-                  !(controller.esPolicia &&
-                      !controller.bandejaDisponible.value)) ...[
-                const SizedBox(height: 14),
-                _message(controller.error.value, isError: true),
+          Widget contenido;
+
+          if (controller.verificandoPermisoNotificaciones.value) {
+            contenido = _verificandoNotificaciones();
+          } else if (!controller.permisoNotificacionesActivo.value) {
+            contenido = _notificacionesRequeridas(context);
+          } else if (controller.cargando.value) {
+            contenido = _estadoCargaPrincipal();
+          } else {
+            final alertaNotificada = controller.alertaNotificacion.value;
+            if (alertaNotificada != null &&
+                controller.marcarDialogoNotificacionAbierto()) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _mostrarDialogoNotificacion(context, alertaNotificada);
+              });
+            }
+
+            contenido = Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (controller.esCiudadano)
+                  _ciudadano(context)
+                else if (controller.esPolicia)
+                  _policia(context)
+                else if (controller.estadoPermisos.value !=
+                    EstadoConsultaPermisos.confirmada)
+                  _consultaNoDisponible()
+                else
+                  _sinPermiso(),
+                if (controller.error.isNotEmpty &&
+                    !(controller.esPolicia &&
+                        !controller.bandejaDisponible.value)) ...[
+                  const SizedBox(height: 10),
+                  _message(controller.error.value, isError: true),
+                ],
+                if (controller.resultado.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  _message(controller.resultado.value),
+                ],
               ],
-              if (controller.resultado.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                _message(controller.resultado.value),
-              ],
-            ],
+            );
+          }
+
+          return AnimatedSwitcher(
+            duration: const Duration(milliseconds: 240),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: KeyedSubtree(
+              key: ValueKey<String>(
+                '${controller.verificandoPermisoNotificaciones.value}-'
+                '${controller.permisoNotificacionesActivo.value}-'
+                '${controller.cargando.value}-'
+                '${controller.esCiudadano}-'
+                '${controller.esPolicia}',
+              ),
+              child: contenido,
+            ),
           );
         }),
+      ),
+    ),
+  );
+
+  Widget _estadoCargaPrincipal() => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 44),
+    child: Center(
+      child: Container(
+        width: 270,
+        padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: _line),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x15102845),
+              blurRadius: 22,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 32,
+              height: 32,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.8,
+                color: _blue,
+              ),
+            ),
+            SizedBox(height: 15),
+            Text(
+              'Sincronizando centro de alertas',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: _ink,
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            SizedBox(height: 5),
+            Text(
+              'Validando permisos y novedades disponibles…',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: _muted,
+                fontSize: 11.5,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
       ),
     ),
   );
@@ -381,60 +466,214 @@ class AlertasCiudadanasPage extends GetView<AlertasCiudadanasController> {
     }
   }
 
+  Future<void> _atenderAlerta(BuildContext context) async {
+    final atendida = await controller.atender();
+    if (!atendida || !context.mounted) return;
+
+    await AwesomeDialog(
+      context: context,
+      dialogType: DialogType.noHeader,
+      animType: AnimType.scale,
+      headerAnimationLoop: false,
+      dismissOnTouchOutside: false,
+      dismissOnBackKeyPress: false,
+      dialogBorderRadius: BorderRadius.circular(22),
+      padding: const EdgeInsets.all(18),
+      body: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: Color(0xFFEAF8F1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_circle_outline_rounded,
+              size: 48,
+              color: Color(0xFF147D58),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Atención registrada',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: _blue,
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'La alerta fue verificada y registrada. Se muestra la bandeja de pendientes.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: _muted, height: 1.45),
+          ),
+        ],
+      ),
+      btnOkText: 'VER PENDIENTES',
+      btnOkColor: _blue,
+      btnOkOnPress: controller.mostrarPendientes,
+    ).show();
+  }
+
+  Future<void> _mostrarAlertasGeneradas(BuildContext context) async {
+    if (!controller.esCiudadano || Get.isDialogOpen == true) return;
+    FocusScope.of(context).unfocus();
+    unawaited(controller.cargarAlertasGeneradas());
+    await Get.dialog<void>(
+      AlertasGeneradasCiudadanoDialog(controller: controller),
+      useSafeArea: true,
+      barrierDismissible: true,
+    );
+  }
+
+  Future<void> _mostrarRegistroPersonalHotel(BuildContext context) async {
+    if (!controller.esUsuarioHotel || Get.isDialogOpen == true) return;
+    FocusScope.of(context).unfocus();
+    controller.errorPersonalHotel.value = '';
+    await Get.dialog<void>(
+      PersonalHotelDialog(controller: controller),
+      useSafeArea: true,
+      barrierDismissible: true,
+    );
+  }
+
   Widget _ciudadano(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       _hero(
         eyebrow: 'MI UPC  /  CANAL CIUDADANO',
         title: 'Alerta ciudadana',
-        subtitle: 'Solicite apoyo policial inmediato. Su ubicación se adjuntará de forma segura.',
+        subtitle:
+            'Reporte una novedad y mantenga seguimiento de la atención policial.',
         icon: Icons.radar_rounded,
         accent: _cyan,
         tag: 'CANAL SEGURO',
       ),
-      const SizedBox(height: 14),
+      const SizedBox(height: 12),
+      LayoutBuilder(
+        builder: (context, constraints) {
+          final horizontal = constraints.maxWidth >= 560;
+
+          final historial = _quickActionCard(
+            key: const ValueKey('ver-alertas-generadas-ciudadano'),
+            icon: Icons.history_rounded,
+            title: 'Mis alertas',
+            subtitle: 'Consulte estado y atención',
+            accent: _blueSoft,
+            onTap: controller.enviando.value
+                ? null
+                : () => _mostrarAlertasGeneradas(context),
+          );
+
+          final hotel = controller.esUsuarioHotel
+              ? _quickActionCard(
+                  key: const ValueKey('registrar-personal-hotel'),
+                  icon: Icons.apartment_rounded,
+                  title: 'Personal del hotel',
+                  subtitle: 'Registre huéspedes o personal',
+                  accent: _green,
+                  onTap: controller.enviando.value
+                      ? null
+                      : () => _mostrarRegistroPersonalHotel(context),
+                )
+              : null;
+
+          if (!horizontal) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                historial,
+                if (hotel != null) ...[
+                  const SizedBox(height: 8),
+                  hotel,
+                ],
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: historial),
+              if (hotel != null) ...[
+                const SizedBox(width: 10),
+                Expanded(child: hotel),
+              ],
+            ],
+          );
+        },
+      ),
+      const SizedBox(height: 12),
       _surface(
+        padding: EdgeInsets.zero,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const _SectionHeading(
-              index: '01',
-              title: 'Detalle de la novedad',
-              subtitle: 'Sea claro y preciso para facilitar la atención.',
-            ),
-            const SizedBox(height: 18),
-            TextField(
-              controller: controller.observacion,
-              minLines: 4,
-              maxLines: 7,
-              maxLength: 1000,
-              textCapitalization: TextCapitalization.sentences,
-              style: const TextStyle(color: _ink, height: 1.45),
-              decoration: _inputDecoration(
-                label: '¿Qué está ocurriendo?',
-                hint: 'Describa brevemente la situación y cualquier dato útil…',
-                icon: Icons.edit_note_rounded,
+            Container(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 15),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xFFF9FCFE),
+                    Color(0xFFF2F8FB),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(22),
+                ),
+              ),
+              child: const _SectionHeading(
+                index: '01',
+                title: 'Detalle de la novedad',
+                subtitle:
+                    'Describa lo ocurrido. La ubicación se adjuntará al momento del envío.',
               ),
             ),
-            const SizedBox(height: 8),
-            _locationNotice(),
-            const SizedBox(height: 18),
-            _actionButton(
-              label: controller.enviando.value
-                  ? 'TRANSMITIENDO ALERTA…'
-                  : 'ENVIAR ALERTA',
-              icon: Icons.sos_rounded,
-              accent: _red,
-              busy: controller.enviando.value,
-              onPressed: controller.enviando.value
-                  ? null
-                  : () => _enviarAlerta(context),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Use este canal únicamente ante una situación que requiera atención policial.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: _muted, fontSize: 12, height: 1.4),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 17, 18, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: controller.observacion,
+                    minLines: 4,
+                    maxLines: 7,
+                    maxLength: 1000,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: const TextStyle(
+                      color: _ink,
+                      fontSize: 13,
+                      height: 1.45,
+                    ),
+                    decoration: _inputDecoration(
+                      label: '¿Qué está ocurriendo?',
+                      hint:
+                          'Describa brevemente la situación, lugar y cualquier dato relevante…',
+                      icon: Icons.edit_note_rounded,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  _locationNotice(),
+                  const SizedBox(height: 14),
+                  _emergencyNotice(),
+                  const SizedBox(height: 16),
+                  _actionButton(
+                    label: controller.enviando.value
+                        ? 'TRANSMITIENDO ALERTA…'
+                        : 'ENVIAR ALERTA',
+                    icon: Icons.sos_rounded,
+                    accent: _red,
+                    busy: controller.enviando.value,
+                    onPressed: controller.enviando.value
+                        ? null
+                        : () => _enviarAlerta(context),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -442,45 +681,171 @@ class AlertasCiudadanasPage extends GetView<AlertasCiudadanasController> {
     ],
   );
 
+  Widget _quickActionCard({
+    Key? key,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color accent,
+    required VoidCallback? onTap,
+  }) =>
+      Material(
+        key: key,
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Ink(
+            padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _line),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x10102845),
+                  blurRadius: 14,
+                  offset: Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: .09),
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(
+                      color: accent.withValues(alpha: .23),
+                    ),
+                  ),
+                  child: Icon(icon, color: accent, size: 22),
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _ink,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _muted,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: onTap == null
+                      ? _muted.withValues(alpha: .35)
+                      : accent,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
   Widget _locationNotice() => Container(
-    padding: const EdgeInsets.all(14),
+    padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
     decoration: BoxDecoration(
       color: const Color(0xFFF0FAFB),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(15),
       border: Border.all(color: const Color(0xFFBDE9EC)),
     ),
     child: const Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(Icons.my_location_rounded, color: _blue, size: 21),
-        SizedBox(width: 11),
+        _MiniStatusIcon(
+          icon: Icons.my_location_rounded,
+          color: _blue,
+        ),
+        SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Ubicación del dispositivo',
+                'Ubicación lista para adjuntar',
                 style: TextStyle(
                   color: _ink,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
-              SizedBox(height: 3),
+              SizedBox(height: 2),
               Text(
-                'Se solicitará acceso al GPS al enviar. Mantenga la ubicación activada.',
-                style: TextStyle(color: _muted, fontSize: 12, height: 1.35),
+                'Se solicitará el GPS únicamente al transmitir la alerta.',
+                style: TextStyle(
+                  color: _muted,
+                  fontSize: 10.8,
+                  height: 1.35,
+                ),
               ),
             ],
           ),
         ),
         SizedBox(width: 8),
-        Icon(Icons.verified_user_outlined, color: Color(0xFF15969F), size: 19),
+        Icon(
+          Icons.verified_user_rounded,
+          color: _green,
+          size: 18,
+        ),
       ],
     ),
   );
 
-  Widget _policia() {
+  Widget _emergencyNotice() => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF6F7),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFFFD5DA)),
+    ),
+    child: const Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.info_outline_rounded,
+          color: _red,
+          size: 18,
+        ),
+        SizedBox(width: 9),
+        Expanded(
+          child: Text(
+            'Use este canal ante situaciones que requieran atención policial. Evite reportes de prueba o información incompleta.',
+            style: TextStyle(
+              color: _ink,
+              fontSize: 10.7,
+              fontWeight: FontWeight.w700,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _policia(BuildContext context) {
     final alerta = controller.seleccionada.value;
     final pendientes = controller.alertas
         .where((item) => !item.atendida)
@@ -535,13 +900,41 @@ class AlertasCiudadanasPage extends GetView<AlertasCiudadanasController> {
         if (alerta != null) ...[
           _backToQueue(),
           const SizedBox(height: 8),
-          _detalle(alerta),
+          _detalle(alerta, context),
         ] else if (!controller.bandejaDisponible.value)
           _bandejaNoDisponible()
         else ...[
           _queueHeader(lista.length),
           const SizedBox(height: 10),
-          if (lista.isEmpty) _emptyQueue() else ...lista.map(_alertTile),
+          if (controller.cargandoHistorial.value)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 28),
+              child: Center(
+                child: SizedBox(
+                  width: 26,
+                  height: 26,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: _blueSoft,
+                  ),
+                ),
+              ),
+            )
+          else if (lista.isEmpty)
+            _emptyQueue()
+          else
+            ...lista.map(_alertTile),
+          if (controller.viendoHistorial.value &&
+              controller.error.isNotEmpty &&
+              !controller.cargandoHistorial.value)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => controller.mostrarHistorial(true),
+                icon: const Icon(Icons.refresh_rounded, size: 17),
+                label: const Text('Reintentar historial'),
+              ),
+            ),
         ],
       ],
     );
@@ -907,82 +1300,86 @@ class AlertasCiudadanasPage extends GetView<AlertasCiudadanasController> {
     ),
   );
 
-  Widget _detalle(DetalleAlertaCiudadana alerta) => _surface(
-    padding: EdgeInsets.zero,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [_navy, _blue],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-          ),
-          child: Row(
-            children: [
-              _alertGlyph(alerta.atendida, large: true),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'FICHA DE INCIDENTE',
-                      style: TextStyle(
-                        color: _cyan,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'ALERTA  #${alerta.id}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: .4,
-                      ),
-                    ),
-                  ],
+  Widget _detalle(DetalleAlertaCiudadana alerta, BuildContext context) =>
+      _surface(
+        padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [_navy, _blue],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
               ),
-              _statusPill(alerta.estado.toUpperCase(), isDone: alerta.atendida),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const _SectionHeading(
-                index: '01',
-                title: 'Información recibida',
-                subtitle: 'Datos reportados por el ciudadano.',
+              child: Row(
+                children: [
+                  _alertGlyph(alerta.atendida, large: true),
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'FICHA DE INCIDENTE',
+                          style: TextStyle(
+                            color: _cyan,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'ALERTA  #${alerta.id}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: .4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _statusPill(
+                    alerta.estado.toUpperCase(),
+                    isDone: alerta.atendida,
+                  ),
+                ],
               ),
-              const SizedBox(height: 14),
-              _infoGrid(alerta),
-              const SizedBox(height: 16),
-              _observationPanel(alerta.observacion),
-              const SizedBox(height: 18),
-              _locationPanel(alerta),
-              const SizedBox(height: 18),
-              if (alerta.atendida)
-                _procedureSummary(alerta)
-              else
-                _procedureForm(alerta),
-            ],
-          ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const _SectionHeading(
+                    index: '01',
+                    title: 'Información recibida',
+                    subtitle: 'Datos reportados por el ciudadano.',
+                  ),
+                  const SizedBox(height: 14),
+                  _infoGrid(alerta),
+                  const SizedBox(height: 16),
+                  _observationPanel(alerta.observacion),
+                  const SizedBox(height: 18),
+                  _locationPanel(alerta),
+                  const SizedBox(height: 18),
+                  if (alerta.atendida)
+                    _procedureSummary(alerta)
+                  else
+                    _procedureForm(alerta, context),
+                ],
+              ),
+            ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 
   Widget _infoGrid(DetalleAlertaCiudadana alerta) => LayoutBuilder(
     builder: (context, constraints) {
@@ -1182,7 +1579,10 @@ class AlertasCiudadanasPage extends GetView<AlertasCiudadanasController> {
     );
   }
 
-  Widget _procedureForm(DetalleAlertaCiudadana alerta) => Column(
+  Widget _procedureForm(
+    DetalleAlertaCiudadana alerta,
+    BuildContext context,
+  ) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       const _SectionHeading(
@@ -1242,7 +1642,9 @@ class AlertasCiudadanasPage extends GetView<AlertasCiudadanasController> {
         icon: Icons.task_alt_rounded,
         accent: const Color(0xFF127F79),
         busy: controller.enviando.value,
-        onPressed: controller.enviando.value ? null : controller.atender,
+        onPressed: controller.enviando.value
+            ? null
+            : () => _atenderAlerta(context),
       ),
     ],
   );
@@ -1283,6 +1685,201 @@ class AlertasCiudadanasPage extends GetView<AlertasCiudadanasController> {
           TextSpan(text: value.isEmpty ? 'No informado' : value),
         ],
       ),
+    ),
+  );
+
+  Widget _verificandoNotificaciones() => _surface(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 58,
+          height: 58,
+          decoration: BoxDecoration(
+            color: _cyan.withValues(alpha: .10),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _cyan.withValues(alpha: .30)),
+          ),
+          child: const Padding(
+            padding: EdgeInsets.all(15),
+            child: CircularProgressIndicator(strokeWidth: 2.5, color: _blue),
+          ),
+        ),
+        const SizedBox(height: 14),
+        const Text(
+          'Verificando notificaciones',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: _ink, fontSize: 16, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'El Centro de Alertas requiere notificaciones activas para garantizar la recepción oportuna de novedades y cambios de estado.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: _muted, fontSize: 12, height: 1.45),
+        ),
+      ],
+    ),
+  );
+
+  Widget _notificacionesRequeridas(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        colors: [Color(0xFFF9FCFE), Color(0xFFF1F7FB)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: const Color(0xFFCADDE8)),
+      boxShadow: const [
+        BoxShadow(color: Color(0x17102E4E), blurRadius: 22, offset: Offset(0, 8)),
+      ],
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 17),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [_navy, _blue, Color(0xFF15558A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: _red.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _red.withValues(alpha: .55)),
+                ),
+                child: const Icon(
+                  Icons.notifications_off_outlined,
+                  color: _red,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 13),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'MI UPC / CENTRO DE ALERTAS',
+                      style: TextStyle(
+                        color: _cyan,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Notificaciones requeridas',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Para utilizar las Alertas Ciudadanas debe mantener activado el permiso de notificaciones.',
+                style: TextStyle(
+                  color: _ink,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Este permiso permite recibir alertas asignadas, cambios de estado y novedades relacionadas con la atención. Mientras permanezca desactivado, el módulo se mantendrá bloqueado.',
+                style: TextStyle(color: _muted, fontSize: 12, height: 1.5),
+              ),
+              const SizedBox(height: 15),
+              Container(
+                padding: const EdgeInsets.all(13),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7F4),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFFFD6CA)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.security_rounded, color: _red, size: 20),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'La aplicación verifica este permiso al ingresar y cada vez que regresa al Centro de Alertas.',
+                        style: TextStyle(
+                          color: _ink,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              _actionButton(
+                label: 'ACTIVAR NOTIFICACIONES',
+                icon: Icons.notifications_active_rounded,
+                accent: _red,
+                onPressed: () async {
+                  final activo = await controller.activarNotificaciones();
+                  if (activo && context.mounted) {
+                    await controller.cargar();
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: controller.abrirAjustesNotificaciones,
+                icon: const Icon(Icons.settings_outlined),
+                label: const Text('ABRIR AJUSTES DE LA APLICACIÓN'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _blue,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                  side: const BorderSide(color: _line),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .4,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 5),
+              TextButton.icon(
+                onPressed: Get.back,
+                icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                label: const Text('VOLVER'),
+                style: TextButton.styleFrom(foregroundColor: _muted),
+              ),
+            ],
+          ),
+        ),
+      ],
     ),
   );
 
@@ -1359,92 +1956,162 @@ class AlertasCiudadanasPage extends GetView<AlertasCiudadanasController> {
     required Color accent,
     required String tag,
     Widget? trailing,
-  }) => Container(
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [_navy, _blue, Color(0xFF15558A)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      borderRadius: BorderRadius.circular(23),
-      border: Border.all(color: _cyan.withValues(alpha: .30)),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x3D07172D),
-          blurRadius: 20,
-          offset: Offset(0, 8),
-        ),
-      ],
-    ),
-    child: Stack(
-      children: [
-        Positioned(
-          right: -26,
-          top: -34,
-          child: Icon(
-            icon,
-            size: 160,
-            color: Colors.white.withValues(alpha: .035),
+  }) =>
+      Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              _navy,
+              Color(0xFF093F61),
+              Color(0xFF0A6278),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            stops: [0, .58, 1],
           ),
-        ),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: .12),
-                borderRadius: BorderRadius.circular(17),
-                border: Border.all(color: accent.withValues(alpha: .5)),
-              ),
-              child: Icon(icon, color: accent, size: 29),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: _cyan.withValues(alpha: .28),
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x35102645),
+              blurRadius: 22,
+              offset: Offset(0, 9),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            Positioned(
+              right: -34,
+              top: -48,
+              child: Container(
+                width: 168,
+                height: 168,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: .05),
+                    width: 22,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              right: 38,
+              bottom: -58,
+              child: Transform.rotate(
+                angle: -.35,
+                child: Container(
+                  width: 160,
+                  height: 84,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: _cyan.withValues(alpha: .08),
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: Container(
+                width: 4,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      accent,
+                      accent.withValues(alpha: .25),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(17, 15, 15, 16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    eyebrow,
-                    style: const TextStyle(
-                      color: _cyan,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.25,
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: .11),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: accent.withValues(alpha: .42),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: accent.withValues(alpha: .12),
+                          blurRadius: 15,
+                        ),
+                      ],
+                    ),
+                    child: Icon(icon, color: accent, size: 27),
+                  ),
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          eyebrow,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: _cyan,
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.15,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            height: 1.05,
+                          ),
+                        ),
+                        if (subtitle.trim().isNotEmpty) ...[
+                          const SizedBox(height: 5),
+                          Text(
+                            subtitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: .72),
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        _tag(tag, accent),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 7),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 23,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: .15,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: .77),
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 11),
-                  _tag(tag, accent),
+                  if (trailing != null) ...[
+                    const SizedBox(width: 8),
+                    trailing,
+                  ],
                 ],
               ),
             ),
-            if (trailing != null) ...[const SizedBox(width: 8), trailing],
           ],
         ),
-      ],
-    ),
-  );
+      );
 
   Widget _tag(String label, Color accent) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
@@ -1639,82 +2306,91 @@ class AlertasCiudadanasPage extends GetView<AlertasCiudadanasController> {
     required Color accent,
     required VoidCallback? onPressed,
     bool busy = false,
-  }) => SizedBox(
-    height: 54,
-    child: DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: onPressed == null
-              ? [const Color(0xFF8291A0), const Color(0xFF687A8B)]
-              : [accent, Color.lerp(accent, _navy, .30)!],
-        ),
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: onPressed == null
-            ? const []
-            : [
-                BoxShadow(
-                  color: accent.withValues(alpha: .24),
-                  blurRadius: 13,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-      ),
-      child: FilledButton.icon(
-        onPressed: onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          disabledBackgroundColor: Colors.transparent,
-          foregroundColor: Colors.white,
-          disabledForegroundColor: Colors.white,
-          shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
+  }) =>
+      SizedBox(
+        height: 52,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: onPressed == null
+                  ? [
+                      const Color(0xFF8393A0),
+                      const Color(0xFF687A87),
+                    ]
+                  : [
+                      accent,
+                      Color.lerp(accent, _navy, .36)!,
+                    ],
+            ),
             borderRadius: BorderRadius.circular(15),
+            boxShadow: onPressed == null
+                ? const []
+                : [
+                    BoxShadow(
+                      color: accent.withValues(alpha: .22),
+                      blurRadius: 14,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+          ),
+          child: FilledButton.icon(
+            onPressed: onPressed,
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              disabledBackgroundColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              disabledForegroundColor: Colors.white,
+              shadowColor: Colors.transparent,
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+            icon: busy
+                ? const SizedBox(
+                    width: 17,
+                    height: 17,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Icon(icon, size: 19),
+            label: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 10.8,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .55,
+              ),
+            ),
           ),
         ),
-        icon: busy
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-            : Icon(icon, size: 20),
-        label: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
-            letterSpacing: .7,
-          ),
-        ),
-      ),
-    ),
-  );
+      );
 
   Widget _surface({
     Key? key,
     required Widget child,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(20),
-  }) => Container(
-    key: key,
-    padding: padding,
-    decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: .97),
-      borderRadius: BorderRadius.circular(22),
-      border: Border.all(color: Colors.white.withValues(alpha: .72)),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x18102845),
-          blurRadius: 20,
-          offset: Offset(0, 7),
+    EdgeInsetsGeometry padding = const EdgeInsets.all(18),
+  }) =>
+      Container(
+        key: key,
+        padding: padding,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: _line),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x14102845),
+              blurRadius: 20,
+              offset: Offset(0, 7),
+            ),
+          ],
         ),
-      ],
-    ),
-    child: child,
-  );
+        child: child,
+      );
 
   Widget _message(String text, {bool isError = false}) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1795,13 +2471,33 @@ class _SectionHeading extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(
-        index,
-        style: const TextStyle(
-          color: Color(0xFF168E9A),
-          fontSize: 11,
-          fontWeight: FontWeight.w900,
-          letterSpacing: .9,
+      Container(
+        width: 31,
+        height: 31,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [_blue, _blueSoft],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x180A4F73),
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Text(
+          index,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 9.5,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .5,
+          ),
         ),
       ),
       const SizedBox(width: 11),
@@ -1813,18 +2509,48 @@ class _SectionHeading extends StatelessWidget {
               title,
               style: const TextStyle(
                 color: _ink,
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.w900,
+                height: 1.1,
               ),
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 4),
             Text(
               subtitle,
-              style: const TextStyle(color: _muted, fontSize: 11, height: 1.4),
+              style: const TextStyle(
+                color: _muted,
+                fontSize: 10.8,
+                height: 1.4,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
       ),
     ],
+  );
+}
+
+class _MiniStatusIcon extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+
+  const _MiniStatusIcon({
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 35,
+    height: 35,
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: .09),
+      borderRadius: BorderRadius.circular(11),
+      border: Border.all(
+        color: color.withValues(alpha: .20),
+      ),
+    ),
+    child: Icon(icon, color: color, size: 18),
   );
 }

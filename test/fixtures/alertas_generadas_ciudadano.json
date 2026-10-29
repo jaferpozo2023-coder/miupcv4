@@ -1,0 +1,334 @@
+{
+  "alertasCiudadano": {
+    "codeError": 0,
+    "msj": "existe",
+    "datos": [
+      {
+        "documento": "documento-prueba",
+        "idGenPersona": 1250,
+        "apenom": "Ciudadano de prueba",
+        "totalAlertas": 5,
+        "totalPendientes": 4,
+        "totalEnAtencion": 0,
+        "totalAtendidas": 1,
+        "pendientes": [
+          {
+            "idDgoAlertasMovilCiu": 5,
+            "idDgoPersonasAlertaApp": 2,
+            "estado": "PENDIENTE",
+            "estadoAlerta": "PENDIENTE",
+            "fechaAlerta": "2026-10-12 00:13:30",
+            "fechaAtencion": null,
+            "observacion": "Reporte de prueba N.º 5",
+            "procedimiento": null,
+            "estadoVerificacion": null,
+            "ubicacionAlerta": {
+              "latitud": "-0.18",
+              "longitud": "-78.46"
+            },
+            "establecimiento": {
+              "institucion": "Local de prueba",
+              "tipoUsuario": "PROPIETARIO",
+              "direccion": "Calle de prueba",
+              "telefono": "0999999999",
+              "mail": "ciudadano@example.com",
+              "latitud": "-0.19",
+              "longitud": "-78.47"
+            },
+            "atencion": {
+              "idGenUsuarioAtiende": null,
+              "servidorPolicial": null,
+              "procedimiento": null,
+              "estadoVerificacion": null,
+              "fechaAtencion": null
+            }
+          },
+          {
+            "idDgoAlertasMovilCiu": 4,
+            "idDgoPersonasAlertaApp": 2,
+            "estado": "PENDIENTE",
+            "estadoAlerta": "PENDIENTE",
+            "fechaAlerta": "2026-10-12 00:12:43",
+            "fechaAtencion": null,
+            "observacion": "Reporte de prueba N.º 4",
+            "procedimiento": null,
+            "estadoVerificacion": null,
+            "ubicacionAlerta": {
+              "latitud": "-0.18",
+              "longitud": "-78.46"
+            },
+            "establecimiento": {
+              "institucion": "Local de prueba",
+              "tipoUsuario": "PROPIETARIO",
+              "direccion": "Calle de prueba",
+              "telefono": "0999999999",
+              "mail": "ciudadano@example.com",
+              "latitud": "-0.19",
+              "longitud": "-78.47"
+            },
+            "atencion": {
+              "idGenUsuarioAtiende": null,
+              "servidorPolicial": null,
+              "procedimiento": null,
+              "estadoVerificacion": null,
+              "fechaAtencion": null
+            }
+          },
+          {
+            "idDgoAlertasMovilCiu": 3,
+            "idDgoPersonasAlertaApp": 2,
+            "estado": "PENDIENTE",
+            "estadoAlerta": "PENDIENTE",
+            "fechaAlerta": "2026-10-11 23:04:50",
+            "fechaAtencion": null,
+            "observacion": "Reporte de prueba N.º 3",
+            "procedimiento": null,
+            "estadoVerificacion": null,
+            "ubicacionAlerta": {
+              "latitud": "-0.18",
+              "longitud": "-78.46"
+            },
+            "establecimiento": {
+              "institucion": "Local de prueba",
+              "tipoUsuario": "PROPIETARIO",
+              "direccion": "Calle de prueba",
+              "telefono": "0999999999",
+              "mail": "ciudadano@example.com",
+              "latitud": "-0.19",
+              "longitud": "-78.47"
+            },
+            "atencion": {
+              "idGenUsuarioAtiende": null,
+              "servidorPolicial": null,
+              "procedimiento": null,
+              "estadoVerificacion": null,
+              "fechaAtencion": null
+            }
+          },
+          {
+            "idDgoAlertasMovilCiu": 2,
+            "idDgoPersonasAlertaApp": 2,
+            "estado": "PENDIENTE",
+            "estadoAlerta": "PENDIENTE",
+            "fechaAlerta": "2026-10-11 23:03:49",
+            "fechaAtencion": null,
+            "observacion": "Reporte de prueba N.º 2",
+            "procedimiento": null,
+            "estadoVerificacion": null,
+            "ubicacionAlerta": {
+              "latitud": "-0.18",
+              "longitud": "-78.46"
+            },
+            "establecimiento": {
+              "institucion": "Local de prueba",
+              "tipoUsuario": "PROPIETARIO",
+              "direccion": "Calle de prueba",
+              "telefono": "0999999999",
+              "mail": "ciudadano@example.com",
+              "latitud": "-0.19",
+              "longitud": "-78.47"
+            },
+            "atencion": {
+              "idGenUsuarioAtiende": null,
+              "servidorPolicial": null,
+              "procedimiento": null,
+              "estadoVerificacion": null,
+              "fechaAtencion": null
+            }
+          }
+        ],
+        "enAtencion": [],
+        "atendidas": [
+          {
+            "idDgoAlertasMovilCiu": 1,
+            "idDgoPersonasAlertaApp": 2,
+            "estado": "ATENDIDA",
+            "estadoAlerta": "ATENDIDA",
+            "fechaAlerta": "2026-10-11 22:59:38",
+            "fechaAtencion": "2026-10-11 23:28:22",
+            "observacion": "Reporte de prueba N.º 1",
+            "procedimiento": "Se verificó la novedad.",
+            "estadoVerificacion": "",
+            "ubicacionAlerta": {
+              "latitud": "-0.18",
+              "longitud": "-78.46"
+            },
+            "establecimiento": {
+              "institucion": "Local de prueba",
+              "tipoUsuario": "PROPIETARIO",
+              "direccion": "Calle de prueba",
+              "telefono": "0999999999",
+              "mail": "ciudadano@example.com",
+              "latitud": "-0.19",
+              "longitud": "-78.47"
+            },
+            "atencion": {
+              "idGenUsuarioAtiende": 1250,
+              "servidorPolicial": "Servidor de prueba",
+              "procedimiento": "Se verificó la novedad.",
+              "estadoVerificacion": "",
+              "fechaAtencion": "2026-10-11 23:28:22"
+            }
+          }
+        ],
+        "alertas": [
+          {
+            "idDgoAlertasMovilCiu": 5,
+            "idDgoPersonasAlertaApp": 2,
+            "estado": "PENDIENTE",
+            "estadoAlerta": "PENDIENTE",
+            "fechaAlerta": "2026-10-12 00:13:30",
+            "fechaAtencion": null,
+            "observacion": "Reporte de prueba N.º 5",
+            "procedimiento": null,
+            "estadoVerificacion": null,
+            "ubicacionAlerta": {
+              "latitud": "-0.18",
+              "longitud": "-78.46"
+            },
+            "establecimiento": {
+              "institucion": "Local de prueba",
+              "tipoUsuario": "PROPIETARIO",
+              "direccion": "Calle de prueba",
+              "telefono": "0999999999",
+              "mail": "ciudadano@example.com",
+              "latitud": "-0.19",
+              "longitud": "-78.47"
+            },
+            "atencion": {
+              "idGenUsuarioAtiende": null,
+              "servidorPolicial": null,
+              "procedimiento": null,
+              "estadoVerificacion": null,
+              "fechaAtencion": null
+            }
+          },
+          {
+            "idDgoAlertasMovilCiu": 4,
+            "idDgoPersonasAlertaApp": 2,
+            "estado": "PENDIENTE",
+            "estadoAlerta": "PENDIENTE",
+            "fechaAlerta": "2026-10-12 00:12:43",
+            "fechaAtencion": null,
+            "observacion": "Reporte de prueba N.º 4",
+            "procedimiento": null,
+            "estadoVerificacion": null,
+            "ubicacionAlerta": {
+              "latitud": "-0.18",
+              "longitud": "-78.46"
+            },
+            "establecimiento": {
+              "institucion": "Local de prueba",
+              "tipoUsuario": "PROPIETARIO",
+              "direccion": "Calle de prueba",
+              "telefono": "0999999999",
+              "mail": "ciudadano@example.com",
+              "latitud": "-0.19",
+              "longitud": "-78.47"
+            },
+            "atencion": {
+              "idGenUsuarioAtiende": null,
+              "servidorPolicial": null,
+              "procedimiento": null,
+              "estadoVerificacion": null,
+              "fechaAtencion": null
+            }
+          },
+          {
+            "idDgoAlertasMovilCiu": 3,
+            "idDgoPersonasAlertaApp": 2,
+            "estado": "PENDIENTE",
+            "estadoAlerta": "PENDIENTE",
+            "fechaAlerta": "2026-10-11 23:04:50",
+            "fechaAtencion": null,
+            "observacion": "Reporte de prueba N.º 3",
+            "procedimiento": null,
+            "estadoVerificacion": null,
+            "ubicacionAlerta": {
+              "latitud": "-0.18",
+              "longitud": "-78.46"
+            },
+            "establecimiento": {
+              "institucion": "Local de prueba",
+              "tipoUsuario": "PROPIETARIO",
+              "direccion": "Calle de prueba",
+              "telefono": "0999999999",
+              "mail": "ciudadano@example.com",
+              "latitud": "-0.19",
+              "longitud": "-78.47"
+            },
+            "atencion": {
+              "idGenUsuarioAtiende": null,
+              "servidorPolicial": null,
+              "procedimiento": null,
+              "estadoVerificacion": null,
+              "fechaAtencion": null
+            }
+          },
+          {
+            "idDgoAlertasMovilCiu": 2,
+            "idDgoPersonasAlertaApp": 2,
+            "estado": "PENDIENTE",
+            "estadoAlerta": "PENDIENTE",
+            "fechaAlerta": "2026-10-11 23:03:49",
+            "fechaAtencion": null,
+            "observacion": "Reporte de prueba N.º 2",
+            "procedimiento": null,
+            "estadoVerificacion": null,
+            "ubicacionAlerta": {
+              "latitud": "-0.18",
+              "longitud": "-78.46"
+            },
+            "establecimiento": {
+              "institucion": "Local de prueba",
+              "tipoUsuario": "PROPIETARIO",
+              "direccion": "Calle de prueba",
+              "telefono": "0999999999",
+              "mail": "ciudadano@example.com",
+              "latitud": "-0.19",
+              "longitud": "-78.47"
+            },
+            "atencion": {
+              "idGenUsuarioAtiende": null,
+              "servidorPolicial": null,
+              "procedimiento": null,
+              "estadoVerificacion": null,
+              "fechaAtencion": null
+            }
+          },
+          {
+            "idDgoAlertasMovilCiu": 1,
+            "idDgoPersonasAlertaApp": 2,
+            "estado": "ATENDIDA",
+            "estadoAlerta": "ATENDIDA",
+            "fechaAlerta": "2026-10-11 22:59:38",
+            "fechaAtencion": "2026-10-11 23:28:22",
+            "observacion": "Reporte de prueba N.º 1",
+            "procedimiento": "Se verificó la novedad.",
+            "estadoVerificacion": "",
+            "ubicacionAlerta": {
+              "latitud": "-0.18",
+              "longitud": "-78.46"
+            },
+            "establecimiento": {
+              "institucion": "Local de prueba",
+              "tipoUsuario": "PROPIETARIO",
+              "direccion": "Calle de prueba",
+              "telefono": "0999999999",
+              "mail": "ciudadano@example.com",
+              "latitud": "-0.19",
+              "longitud": "-78.47"
+            },
+            "atencion": {
+              "idGenUsuarioAtiende": 1250,
+              "servidorPolicial": "Servidor de prueba",
+              "procedimiento": "Se verificó la novedad.",
+              "estadoVerificacion": "",
+              "fechaAtencion": "2026-10-11 23:28:22"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

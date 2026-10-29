@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 
 import '../../../core/exceptions/exceptions.dart';
 import '../../../data/models/detalle_alerta_ciudadana_model.dart';
+import '../../../data/models/alertas_generadas_ciudadano_model.dart';
 import '../../../data/models/permisos_mi_upc_model.dart';
+import '../../../data/models/personal_hotel_model.dart';
+import '../../../data/models/validacion_ciudadano_alerta_model.dart';
 import '../../../data/repository/data_repositories.dart';
 import '../../../domain/repositories/domain_repositories.dart';
 
@@ -12,6 +16,12 @@ enum EstadoConsultaPermisos { pendiente, confirmada, noDisponible, sinRegistro }
 
 class AlertasCiudadanasController extends GetxController
     with WidgetsBindingObserver {
+  AlertasCiudadanasController({
+    Future<bool> Function()? verificarPermisoNotificaciones,
+  }) : _verificarPermisoNotificaciones =
+           verificarPermisoNotificaciones ?? _solicitarPermisoNotificaciones;
+
+  final Future<bool> Function() _verificarPermisoNotificaciones;
   final PermisosMiUpcRepository _permisos = Get.find();
   final ValidacionCiudadanoAlertaRepository _validacion = Get.find();
   final CrearAlertaCiudadanaRepository _crear = Get.find();
@@ -19,10 +29,44 @@ class AlertasCiudadanasController extends GetxController
   final AlertasAtendidasPoliciaRepository _historial = Get.find();
   final LocalStoreImpl _local = Get.find();
   final AlertasPoliciaRepository _bandejaPolicia = Get.find();
+  final AlertasGeneradasCiudadanoRepository _generadasCiudadano = Get.find();
+  final PersonalHotelRepository _personalHotel = Get.find();
   final viendoHistorial = false.obs;
+  final cargandoHistorial = false.obs;
   bool _historialCargado = false;
   bool _estuvoEnSegundoPlano = false;
   Future<void>? _cargaPendiente;
+  int _consultaGeneradas = 0;
+
+  final cargandoAlertasGeneradas = false.obs;
+  final errorAlertasGeneradas = ''.obs;
+  final historialCiudadano = <AlertasGeneradasCiudadano>[].obs;
+  final personalHotelRegistrado = <PersonalHotelRegistrado>[].obs;
+  final registrandoPersonalHotel = false.obs;
+  final errorPersonalHotel = ''.obs;
+  final permisoNotificacionesActivo = false.obs;
+  final verificandoPermisoNotificaciones = true.obs;
+
+  List<AlertaGeneradaCiudadano> get alertasGeneradas {
+    final porId = <int, AlertaGeneradaCiudadano>{};
+    for (final historial in historialCiudadano) {
+      for (final alerta in historial.todas) {
+        porId[alerta.idDgoAlertasMovilCiu] = alerta;
+      }
+    }
+    return porId.values.toList()..sort(
+      (a, b) => b.idDgoAlertasMovilCiu.compareTo(a.idDgoAlertasMovilCiu),
+    );
+  }
+
+  int get totalAlertasGeneradas =>
+      historialCiudadano.fold(0, (total, item) => total + item.totalAlertas);
+  int get totalGeneradasPendientes =>
+      historialCiudadano.fold(0, (total, item) => total + item.totalPendientes);
+  int get totalGeneradasEnAtencion =>
+      historialCiudadano.fold(0, (total, item) => total + item.totalEnAtencion);
+  int get totalGeneradasAtendidas =>
+      historialCiudadano.fold(0, (total, item) => total + item.totalAtendidas);
 
   final cargando = false.obs;
   final enviando = false.obs;
@@ -31,6 +75,7 @@ class AlertasCiudadanasController extends GetxController
   final error = ''.obs;
   final resultado = ''.obs;
   final permiso = Rxn<PermisoMiUpc>();
+  final ciudadanoValidado = Rxn<CiudadanoAlerta>();
   final estadoPermisos = EstadoConsultaPermisos.pendiente.obs;
   final alertas = <DetalleAlertaCiudadana>[].obs;
   final seleccionada = Rxn<DetalleAlertaCiudadana>();
@@ -42,8 +87,19 @@ class AlertasCiudadanasController extends GetxController
   bool _dialogoNotificacionAbierto = false;
 
   bool get esCiudadano => permiso.value?.puedeEnviarAlertas ?? false;
+  bool get esUsuarioHotel {
+    final ciudadano = ciudadanoValidado.value;
+    return esCiudadano &&
+        ciudadano != null &&
+        ciudadano.idDgoPersonasAlertaApp > 0 &&
+        ciudadano.esHotel;
+  }
+
   bool get esPolicia =>
       !esCiudadano && (permiso.value?.puedeAtenderAlertas ?? false);
+  bool get notificacionesBloqueadas =>
+      !verificandoPermisoNotificaciones.value &&
+      !permisoNotificacionesActivo.value;
 
   @override
   void onInit() {
@@ -70,6 +126,7 @@ class AlertasCiudadanasController extends GetxController
 
   @override
   void onClose() {
+    _consultaGeneradas++;
     WidgetsBinding.instance.removeObserver(this);
     observacion.dispose();
     procedimiento.dispose();
@@ -85,7 +142,11 @@ class AlertasCiudadanasController extends GetxController
   }
 
   void _limpiarAcceso() {
+    _limpiarHistorialCiudadano();
+    personalHotelRegistrado.clear();
+    errorPersonalHotel.value = '';
     permiso.value = null;
+    ciudadanoValidado.value = null;
     alertas.clear();
     seleccionada.value = null;
     procedimiento.clear();
@@ -107,6 +168,11 @@ class AlertasCiudadanasController extends GetxController
       (item) => item.documento == _documento,
     );
 
+    if (!esCiudadano) {
+      ciudadanoValidado.value = null;
+      _limpiarHistorialCiudadano();
+    }
+
     if (!esPolicia) {
       alertas.clear();
       seleccionada.value = null;
@@ -122,6 +188,14 @@ class AlertasCiudadanasController extends GetxController
     final idSeleccionada = seleccionada.value?.id;
     var permisosConsultados = false;
     try {
+      final notificacionesActivas = await asegurarPermisoNotificaciones();
+      if (isClosed) return;
+      if (!notificacionesActivas) {
+        _limpiarAcceso();
+        estadoPermisos.value = EstadoConsultaPermisos.pendiente;
+        error.value = '';
+        return;
+      }
       final usuario = await _local.getDatosUsuarioCompleto();
       if (isClosed) return;
       final documento = usuario?['cedula']?.toString().trim() ?? '';
@@ -142,6 +216,17 @@ class AlertasCiudadanasController extends GetxController
       if (isClosed) return;
       _aplicarPermisos(respuesta);
       permisosConsultados = true;
+      if (esCiudadano) {
+        ciudadanoValidado.value = null;
+        final ciudadano = await _consultarCiudadanoValidado();
+        if (isClosed) return;
+        if (ciudadano == null) {
+          throw StateError(
+            'No se encontró una validación ciudadana activa para esta cuenta.',
+          );
+        }
+        ciudadanoValidado.value = ciudadano;
+      }
       if (esPolicia) {
         final respuestaBandeja = await _bandejaPolicia.consultarAlertasPolicia(
           documento: _documento,
@@ -191,17 +276,19 @@ class AlertasCiudadanasController extends GetxController
   }
 
   Future<void> mostrarHistorial(bool mostrar) async {
-    viendoHistorial.value = mostrar;
-    seleccionada.value = null;
-    if (!mostrar ||
-        _historialCargado ||
-        !esPolicia ||
-        cargando.value ||
-        enviando.value) {
+    if (cargando.value || enviando.value || cargandoHistorial.value) return;
+    if (!permisoNotificacionesActivo.value &&
+        !await asegurarPermisoNotificaciones()) {
+      error.value =
+          'Active los permisos de notificación para consultar y gestionar alertas.';
       return;
     }
-    cargando.value = true;
-    peticionInstitucional.value = true;
+    viendoHistorial.value = mostrar;
+    seleccionada.value = null;
+    if (!mostrar || _historialCargado || !esPolicia) {
+      return;
+    }
+    cargandoHistorial.value = true;
     error.value = '';
     try {
       final respuesta = await _historial.consultarAlertasAtendidas(
@@ -217,8 +304,175 @@ class AlertasCiudadanasController extends GetxController
     } catch (e) {
       error.value = _mensajeError(e);
     } finally {
-      cargando.value = false;
-      peticionInstitucional.value = false;
+      cargandoHistorial.value = false;
+    }
+  }
+
+  void mostrarPendientes() {
+    viendoHistorial.value = false;
+    seleccionada.value = null;
+    error.value = '';
+    resultado.value = '';
+  }
+
+  void _limpiarHistorialCiudadano() {
+    _consultaGeneradas++;
+    historialCiudadano.clear();
+    errorAlertasGeneradas.value = '';
+    cargandoAlertasGeneradas.value = false;
+  }
+
+  Future<void> cargarAlertasGeneradas() async {
+    if (isClosed ||
+        cargando.value ||
+        enviando.value ||
+        cargandoAlertasGeneradas.value ||
+        !esCiudadano) {
+      return;
+    }
+
+    if (!await asegurarPermisoNotificaciones()) {
+      errorAlertasGeneradas.value =
+          'Active las notificaciones para utilizar el módulo de alertas.';
+      return;
+    }
+
+    final consulta = ++_consultaGeneradas;
+    final documento = _documento;
+    cargandoAlertasGeneradas.value = true;
+    errorAlertasGeneradas.value = '';
+    historialCiudadano.clear();
+
+    bool vigente() =>
+        !isClosed && consulta == _consultaGeneradas && documento == _documento;
+
+    try {
+      final usuario = await _local.getDatosUsuarioCompleto();
+      if (!vigente()) return;
+      if (documento.isEmpty ||
+          usuario?['cedula']?.toString().trim() != documento) {
+        throw StateError(
+          'Su registro cambió. Cierre el diálogo y actualice sus datos antes de consultar las alertas.',
+        );
+      }
+      final respuesta = await _generadasCiudadano.consultarAlertasGeneradas(
+        documento: documento,
+      );
+      if (!vigente()) return;
+      // La cuenta puede cambiar mientras el servidor responde.
+      final usuarioActual = await _local.getDatosUsuarioCompleto();
+      if (!vigente()) return;
+      if (usuarioActual?['cedula']?.toString().trim() != documento) {
+        throw StateError(
+          'Su registro cambió. Cierre el diálogo y actualice sus datos antes de consultar las alertas.',
+        );
+      }
+      if (respuesta.codeError != 0) {
+        throw StateError(
+          respuesta.msj.isEmpty
+              ? 'No se pudieron consultar sus alertas generadas.'
+              : respuesta.msj,
+        );
+      }
+      historialCiudadano.assignAll(
+        respuesta.datos.where((item) => item.documento == documento),
+      );
+    } catch (e) {
+      if (vigente()) errorAlertasGeneradas.value = _mensajeError(e);
+    } finally {
+      if (vigente()) cargandoAlertasGeneradas.value = false;
+    }
+  }
+
+  Future<bool> registrarPersonalHotel({
+    required String documento,
+    required String nombres,
+    required String nacionalidad,
+  }) async {
+    if (registrandoPersonalHotel.value) return false;
+    final ciudadano = ciudadanoValidado.value;
+    if (!esUsuarioHotel ||
+        ciudadano == null ||
+        ciudadano.idDgoPersonasAlertaApp <= 0) {
+      errorPersonalHotel.value =
+          'La cuenta no tiene permisos para registrar personal del hotel.';
+      return false;
+    }
+    if (!await asegurarPermisoNotificaciones()) {
+      errorPersonalHotel.value =
+          'Active las notificaciones para utilizar las funciones del módulo de alertas.';
+      return false;
+    }
+
+    final idPersona = ciudadano.idDgoPersonasAlertaApp;
+    final documentoSesion = _documento;
+    registrandoPersonalHotel.value = true;
+    errorPersonalHotel.value = '';
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw StateError(
+          'Active la ubicación del dispositivo para registrar al huésped.',
+        );
+      }
+      var permisoUbicacion = await Geolocator.checkPermission();
+      if (permisoUbicacion == LocationPermission.denied) {
+        permisoUbicacion = await Geolocator.requestPermission();
+      }
+      if (permisoUbicacion == LocationPermission.denied ||
+          permisoUbicacion == LocationPermission.deniedForever) {
+        throw StateError(
+          'Se necesita el permiso de ubicación para registrar al huésped.',
+        );
+      }
+      final posicion = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 20),
+        ),
+      );
+      if (!posicion.latitude.isFinite ||
+          !posicion.longitude.isFinite ||
+          posicion.latitude.abs() > 90 ||
+          posicion.longitude.abs() > 180 ||
+          (posicion.latitude == 0 && posicion.longitude == 0)) {
+        throw StateError(
+          'No se obtuvo una ubicación válida. Vuelva a intentar.',
+        );
+      }
+      final respuesta = await _personalHotel.registrarPersonalHotel(
+        idDgoPersonasAlertaApp: idPersona,
+        documento: documento,
+        nombres: nombres,
+        nacionalidad: nacionalidad,
+        latitud: posicion.latitude,
+        longitud: posicion.longitude,
+      );
+      final registrado = respuesta.datos;
+      if (respuesta.codeError != 0 ||
+          registrado == null ||
+          registrado.idDgoHuespedesApp <= 0 ||
+          registrado.idDgoPersonasAlertaApp != idPersona) {
+        throw StateError(
+          respuesta.msj.isEmpty
+              ? 'No se pudo confirmar el registro del personal.'
+              : respuesta.msj,
+        );
+      }
+      if (isClosed ||
+          _documento != documentoSesion ||
+          permiso.value?.ciudadano?.idDgoPersonasAlertaApp != idPersona) {
+        if (!isClosed) {
+          errorPersonalHotel.value = 'La cuenta cambió durante el registro. Actualice la pantalla antes de continuar.';
+        }
+        return false;
+      }
+      personalHotelRegistrado.insert(0, registrado);
+      return true;
+    } catch (e) {
+      errorPersonalHotel.value = _mensajeError(e);
+      return false;
+    } finally {
+      registrandoPersonalHotel.value = false;
     }
   }
 
@@ -259,10 +513,84 @@ class AlertasCiudadanasController extends GetxController
     alertaNotificacion.value = null;
   }
 
+  Future<bool> asegurarPermisoNotificaciones() async {
+    if (isClosed) return false;
+    verificandoPermisoNotificaciones.value = true;
+    try {
+      final activo = await _verificarPermisoNotificaciones();
+      if (!isClosed) permisoNotificacionesActivo.value = activo;
+      return activo;
+    } catch (e) {
+      if (!isClosed) permisoNotificacionesActivo.value = false;
+      debugPrint('No fue posible verificar el permiso de notificaciones: $e');
+      return false;
+    } finally {
+      if (!isClosed) verificandoPermisoNotificaciones.value = false;
+    }
+  }
+
+  Future<bool> activarNotificaciones() async {
+    final activo = await asegurarPermisoNotificaciones();
+    if (!isClosed) {
+      error.value = activo
+          ? ''
+          : 'Las notificaciones son obligatorias para utilizar el módulo de alertas.';
+    }
+    return activo;
+  }
+
+  Future<void> abrirAjustesNotificaciones() async {
+    try {
+      await Geolocator.openAppSettings();
+    } catch (e) {
+      if (!isClosed) {
+        error.value =
+            'No fue posible abrir los ajustes de la aplicación. Active manualmente las notificaciones desde los ajustes del dispositivo.';
+      }
+    }
+  }
+
+  static Future<bool> _solicitarPermisoNotificaciones() async {
+    final messaging = FirebaseMessaging.instance;
+    var settings = await messaging.getNotificationSettings();
+    if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional) {
+      return true;
+    }
+    settings = await messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    return settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional;
+  }
+
+  Future<CiudadanoAlerta?> _consultarCiudadanoValidado() async {
+    final respuesta = await _validacion.validarCiudadanoAlerta(
+      documento: _documento,
+    );
+    if (respuesta.codeError != 0) {
+      throw StateError(
+        respuesta.msj.isEmpty
+            ? 'No se pudo validar el registro del ciudadano.'
+            : respuesta.msj,
+      );
+    }
+    return respuesta.datos.firstWhereOrNull(
+      (item) => item.documento == _documento && item.idDgoPersonasAlertaApp > 0,
+    );
+  }
+
   Future<bool> enviar() async {
     if (cargando.value || enviando.value || !esCiudadano) return false;
     if (observacion.text.trim().length < 5) {
       error.value = 'Describa lo ocurrido con al menos 5 caracteres.';
+      return false;
+    }
+    if (!await asegurarPermisoNotificaciones()) {
+      error.value =
+          'Active los permisos de notificación para enviar una SOS ALERTA.';
       return false;
     }
     enviando.value = true;
@@ -280,19 +608,13 @@ class AlertasCiudadanasController extends GetxController
           'Su cuenta no tiene permiso para enviar alertas ciudadanas.',
         );
       }
-      final validacion = await _validacion.validarCiudadanoAlerta(
-        documento: _documento,
-      );
-      final ciudadano = validacion.datos.firstWhereOrNull(
-        (item) => item.documento == _documento,
-      );
-      if (validacion.codeError != 0 ||
-          ciudadano == null ||
-          ciudadano.idDgoPersonasAlertaApp <= 0) {
+      final ciudadano = await _consultarCiudadanoValidado();
+      if (ciudadano == null) {
         throw StateError(
           'El ciudadano no está habilitado para enviar alertas.',
         );
       }
+      ciudadanoValidado.value = ciudadano;
       if (!await Geolocator.isLocationServiceEnabled()) {
         throw StateError(
           'Active la ubicación del dispositivo para enviar la alerta.',
@@ -342,19 +664,24 @@ class AlertasCiudadanasController extends GetxController
     }
   }
 
-  Future<void> atender() async {
+  Future<bool> atender() async {
     final alerta = seleccionada.value;
     if (cargando.value ||
         enviando.value ||
         !esPolicia ||
         alerta == null ||
         alerta.atendida) {
-      return;
+      return false;
     }
     if (procedimiento.text.trim().length < 5 ||
         !['VERIFICADA', 'NO_VERIFICADA'].contains(verificacion.value)) {
       error.value = 'Describa el procedimiento y seleccione el resultado de la verificación.';
-      return;
+      return false;
+    }
+    if (!await asegurarPermisoNotificaciones()) {
+      error.value =
+          'Active las notificaciones para atender y gestionar alertas.';
+      return false;
     }
     enviando.value = true;
     peticionInstitucional.value = true;
@@ -398,11 +725,12 @@ class AlertasCiudadanasController extends GetxController
       final index = alertas.indexWhere((item) => item.id == alerta.id);
       if (index >= 0) alertas[index] = actualizada;
       seleccionada.value = actualizada;
-      viendoHistorial.value = true;
       _historialCargado = false;
       resultado.value = 'Procedimiento registrado correctamente.';
+      return true;
     } catch (e) {
       error.value = _mensajeError(e);
+      return false;
     } finally {
       enviando.value = false;
       peticionInstitucional.value = false;

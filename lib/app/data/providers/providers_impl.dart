@@ -46,6 +46,8 @@ export 'remote/permisos_mi_upc_api_provider.dart';
 export 'remote/alertas_atendidas_policia_api_provider.dart';
 
 export 'remote/alertas_policia_api_provider.dart';
+export 'remote/alertas_generadas_ciudadano_api_provider.dart';
+export 'remote/personal_hotel_api_provider.dart';
 
 part 'local/local_store_provider.dart';
 

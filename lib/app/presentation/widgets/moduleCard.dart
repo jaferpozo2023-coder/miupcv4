@@ -14,86 +14,210 @@ class ModuleCard extends StatefulWidget {
     required this.onTap,
   });
 
+  static ({double padding, double fontSize, double imageSize}) _metrics(
+    double width,
+  ) {
+    final compact = width < 185;
+    return (
+      padding: compact ? 14.0 : 18.0,
+      fontSize: compact ? 12.5 : 14.0,
+      imageSize: (width * 0.40).clamp(68.0, 84.0),
+    );
+  }
+
+  static double heightForWidth(double width, TextScaler textScaler) {
+    final metrics = _metrics(width);
+    final titleHeight = (textScaler.scale(metrics.fontSize) * 1.3 * 3).ceilToDouble() + 2;
+    return metrics.padding * 2 + metrics.imageSize +
+        26 +
+        12 +
+        titleHeight +
+        10 +
+        18;
+  }
+
   @override
   State<ModuleCard> createState() => _ModuleCardState();
 }
 
 class _ModuleCardState extends State<ModuleCard> {
   bool _pressed = false;
+  bool _hovered = false;
+  bool _focused = false;
+  Uint8List? _imageBytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _decodeImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant ModuleCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.base64Img != widget.base64Img) _decodeImage();
+  }
+
+  void _decodeImage() {
+    final image = widget.base64Img?.trim();
+    try {
+      _imageBytes = image == null || image.isEmpty ? null : base64Decode(image);
+    } on FormatException {
+      _imageBytes = null;
+    }
+  }
+
+  Color get _accent {
+    if (widget.destacado) return const Color(0xFFE05D68);
+    final title = widget.title.toUpperCase();
+    if (title.contains('VIOLENCIA')) return const Color(0xFF6876B0);
+    if (title.contains('AUTOPROTECC')) return const Color(0xFF25888C);
+    if (title.contains('SERVICIOS')) return const Color(0xFF397BB1);
+    return const Color(0xFF247890);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = widget.destacado
-        ? const Color(0xFFD94B4B)
-        : const Color(0xFF195BA6);
+    final accent = _accent;
+    final active = _hovered || _focused;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final radius = BorderRadius.circular(22);
+    final backgroundColors = widget.destacado
+        ? const [Color(0xFFFFFEFE), Color(0xFFFFF5F4), Color(0xFFFFECEB)]
+        : const [Color(0xFFFFFFFF), Color(0xFFF8FBFF), Color(0xFFEAF4FC)];
+    final title = widget.title.trim().isEmpty
+        ? 'MÓDULO'
+        : widget.title.toUpperCase();
 
-    return AnimatedScale(
-      scale: _pressed ? 0.975 : 1,
-      duration: const Duration(milliseconds: 140),
-      curve: Curves.easeOut,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(22),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: const LinearGradient(
-              colors: [Colors.white, Color(0xFFF4F8FC)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            border: Border.all(
-              color: widget.destacado
-                  ? const Color(0xFFD94B4B).withOpacity(0.5)
-                  : const Color(0xFFDCE6F0),
-              width: widget.destacado ? 1.5 : 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: accentColor.withOpacity(_pressed ? 0.08 : 0.12),
-                blurRadius: _pressed ? 8 : 16,
-                offset: Offset(0, _pressed ? 3 : 7),
+    return Semantics(
+      button: true,
+      label: title,
+      onTap: widget.onTap,
+      child: ExcludeSemantics(
+        child: AnimatedScale(
+          scale: _pressed && !reduceMotion ? 0.985 : 1,
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 140),
+          curve: Curves.easeOut,
+          child: AnimatedContainer(
+            duration: reduceMotion
+                ? Duration.zero
+                : const Duration(milliseconds: 180),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: backgroundColors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-            ],
-          ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(22),
-            onTap: widget.onTap,
-            onTapDown: (_) => setState(() => _pressed = true),
-            onTapUp: (_) => setState(() => _pressed = false),
-            onTapCancel: () => setState(() => _pressed = false),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final bool horizontal =
-                    constraints.maxWidth > constraints.maxHeight * 1.35;
-                final double imageSize = horizontal
-                    ? 72
-                    : (constraints.maxHeight * 0.34).clamp(54.0, 78.0);
-
-                return Stack(
-                  children: [
-                    Positioned(
-                      right: -24,
-                      bottom: -34,
-                      child: Container(
-                        width: 110,
-                        height: 110,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: accentColor.withOpacity(0.045),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.all(horizontal ? 18 : 12),
-                      child: horizontal
-                          ? _buildHorizontal(imageSize, accentColor)
-                          : _buildVertical(constraints, imageSize, accentColor),
-                    ),
-                    if (widget.destacado) _buildFeaturedBadge(),
-                  ],
-                );
-              },
+              borderRadius: radius,
+              border: Border.all(
+                color: accent.withValues(
+                  alpha: active
+                      ? 0.56
+                      : widget.destacado
+                      ? 0.30
+                      : 0.20,
+                ),
+                width: widget.destacado ? 1.3 : 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF173B64).withValues(alpha: 0.07),
+                  blurRadius: 14,
+                  offset: Offset(0, _pressed ? 2 : 5),
+                ),
+                if (widget.destacado)
+                  BoxShadow(
+                    color: accent.withValues(alpha: active ? 0.14 : 0.08),
+                    blurRadius: active ? 20 : 14,
+                    offset: const Offset(0, 4),
+                  ),
+                if (active)
+                  BoxShadow(
+                    color: accent.withValues(alpha: 0.10),
+                    blurRadius: 16,
+                  ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: radius,
+              child: Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                  borderRadius: radius,
+                  onTap: widget.onTap,
+                  onHover: (value) => setState(() => _hovered = value),
+                  onFocusChange: (value) => setState(() => _focused = value),
+                  onTapDown: (_) => setState(() => _pressed = true),
+                  onTapUp: (_) => setState(() => _pressed = false),
+                  onTapCancel: () => setState(() => _pressed = false),
+                  splashColor: accent.withValues(alpha: 0.08),
+                  highlightColor: accent.withValues(alpha: 0.025),
+                  hoverColor: accent.withValues(alpha: 0.025),
+                  focusColor: accent.withValues(alpha: 0.06),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final metrics = ModuleCard._metrics(constraints.maxWidth);
+                      return Stack(
+                        children: [
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: CustomPaint(
+                                painter: _ModuleCircuitPainter(
+                                  accent: accent,
+                                  destacado: widget.destacado,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (widget.destacado)
+                            Positioned(
+                              top: 9,
+                              right: 10,
+                              child: _alertaBadge(accent),
+                            ),
+                          Padding(
+                            padding: EdgeInsets.all(metrics.padding),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _buildImageArea(metrics.imageSize, accent),
+                                const SizedBox(height: 2),
+                                Expanded(
+                                  child: Center(
+                                    child: Text(
+                                      title,
+                                      textAlign: TextAlign.center,
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: metrics.fontSize,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF163A5D),
+                                        height: 1.3,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Icon(
+                                    Icons.arrow_forward_rounded,
+                                    size: 18,
+                                    color: accent,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -101,180 +225,176 @@ class _ModuleCardState extends State<ModuleCard> {
     );
   }
 
-  Widget _buildHorizontal(double imageSize, Color accentColor) {
-    return Row(
-      children: [
-        _buildAvatar(imageSize, accentColor),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildTextContent(
-            accentColor,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            textAlign: TextAlign.start,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildVertical(
-    BoxConstraints constraints,
-    double imageSize,
-    Color accentColor,
-  ) {
-    final bool compact = constraints.maxHeight < 195;
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _buildAvatar(imageSize, accentColor),
-        SizedBox(height: compact ? 7 : 12),
-        Expanded(
-          child: _buildTextContent(
-            accentColor,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            textAlign: TextAlign.center,
-            compact: compact,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTextContent(
-    Color accentColor, {
-    required CrossAxisAlignment crossAxisAlignment,
-    required TextAlign textAlign,
-    bool compact = false,
-  }) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: crossAxisAlignment,
-      children: [
-        Text(
-          widget.title.trim().isEmpty ? 'MÓDULO' : widget.title.toUpperCase(),
-          textAlign: textAlign,
-          maxLines: compact ? 2 : 3,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: compact ? 12 : 14,
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFF06245B),
-            letterSpacing: 0.25,
-            height: 1.2,
-          ),
-        ),
-        SizedBox(height: compact ? 4 : 7),
-        Text(
-          'Acceder al módulo',
-          textAlign: textAlign,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: compact ? 10.5 : 11.5,
-            fontWeight: FontWeight.w600,
-            color: Colors.blueGrey.shade500,
-          ),
-        ),
-        SizedBox(height: compact ? 7 : 10),
-        Container(
-          width: 42,
-          height: 4,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            gradient: LinearGradient(
-              colors: [accentColor, const Color(0xFF6C7B8B)],
+  Widget _buildImageArea(double size, Color accent) => SizedBox(
+    height: size + 26,
+    child: Center(
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: size + 30,
+            height: size + 30,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  accent.withValues(alpha: widget.destacado ? 0.18 : 0.13),
+                  accent.withValues(alpha: 0.035),
+                  accent.withValues(alpha: 0),
+                ],
+                stops: const [0, 0.62, 1],
+              ),
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAvatar(double size, Color accentColor) {
-    return Container(
-      width: size,
-      height: size,
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [accentColor, const Color(0xFF6C7B8B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: accentColor.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+          Container(
+            width: size + 15,
+            height: size + 15,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: accent.withValues(alpha: widget.destacado ? 0.30 : 0.20),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: accent.withValues(alpha: 0.10),
+                  blurRadius: 12,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: size + 3,
+            height: size + 3,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: widget.destacado
+                    ? const [Color(0xFFFFF7F6), Color(0xFFFFE8E6)]
+                    : const [Colors.white, Color(0xFFEAF4FC)],
+              ),
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF173B64).withValues(alpha: 0.13),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: size,
+            height: size,
+            child: _imageBytes == null
+                ? _buildFallbackIcon(accent, size)
+                : Image.memory(
+                    _imageBytes!,
+                    fit: BoxFit.contain,
+                    gaplessPlayback: true,
+                    errorBuilder: (_, _, _) => _buildFallbackIcon(accent, size),
+                  ),
           ),
         ],
       ),
-      child: ClipOval(
-        child: ColoredBox(
-          color: Colors.white,
-          child: Padding(
-            padding: const EdgeInsets.all(7),
-            child: _buildImageContent(),
-          ),
-        ),
-      ),
-    );
-  }
+    ),
+  );
 
-  Widget _buildImageContent() {
-    final image = widget.base64Img;
-    if (image == null || image.trim().isEmpty) {
-      return _buildFallbackIcon();
-    }
-
-    try {
-      return Image.memory(
-        base64Decode(image),
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => _buildFallbackIcon(),
-      );
-    } on FormatException {
-      return _buildFallbackIcon();
-    }
-  }
-
-  Widget _buildFallbackIcon() {
-    final titulo = widget.title.toUpperCase();
-    final icono = titulo.contains('DENUNCIAS') || titulo.contains('ALERTAS')
+  Widget _buildFallbackIcon(Color accent, double size) {
+    final title = widget.title.toUpperCase();
+    final icon = title.contains('DENUNCIAS') || title.contains('ALERTAS')
         ? Icons.campaign_rounded
-        : titulo.contains('UPC')
+        : title.contains('UPC')
         ? Icons.location_city_rounded
-        : titulo.contains('VIOLENCIA')
+        : title.contains('VIOLENCIA')
         ? Icons.health_and_safety_rounded
-        : titulo.contains('SERVICIOS')
+        : title.contains('SERVICIOS')
         ? Icons.local_police_rounded
-        : titulo.contains('AUTOPROTECC')
+        : title.contains('AUTOPROTECC')
         ? Icons.shield_rounded
         : Icons.grid_view_rounded;
-    return Center(child: Icon(icono, size: 30, color: const Color(0xFF195BA6)));
-  }
-
-  Widget _buildFeaturedBadge() {
-    return Positioned(
-      top: 8,
-      right: 8,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: const Color(0xFFD94B4B),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Text(
-          'DESTACADO',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 9,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.3,
-          ),
-        ),
-      ),
+    return Center(
+      child: Icon(icon, size: size * 0.62, color: accent),
     );
   }
+
+  Widget _alertaBadge(Color accent) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFE2E1),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: accent.withValues(alpha: 0.22)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.notifications_active_rounded, size: 10, color: accent),
+        const SizedBox(width: 4),
+        Text(
+          'ALERTAS',
+          style: TextStyle(
+            color: accent,
+            fontSize: 8,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.7,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ModuleCircuitPainter extends CustomPainter {
+  const _ModuleCircuitPainter({required this.accent, required this.destacado});
+
+  final Color accent;
+  final bool destacado;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final trace = Paint()
+      ..color = accent.withValues(alpha: 0.12)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8
+      ..strokeCap = StrokeCap.round;
+
+    final grid = Paint()
+      ..color = accent.withValues(alpha: destacado ? 0.075 : 0.055)
+      ..style = PaintingStyle.fill;
+    for (var row = 0; row < 4; row++) {
+      for (var column = 0; column < 5; column++) {
+        canvas.drawCircle(
+          Offset(
+            size.width * 0.08 + column * 13,
+            size.height * 0.66 + row * 13,
+          ),
+          0.8,
+          grid,
+        );
+      }
+    }
+
+    final upper = drawing.Path()
+      ..moveTo(size.width * 0.68, 0)
+      ..lineTo(size.width * 0.68, 12)
+      ..lineTo(size.width - 26, 12)
+      ..lineTo(size.width - 12, 26)
+      ..lineTo(size.width - 12, 52);
+    canvas.drawPath(upper, trace);
+    canvas.drawCircle(Offset(size.width - 12, 55), 2.5, trace);
+
+    final lower = drawing.Path()
+      ..moveTo(0, size.height * 0.87)
+      ..lineTo(14, size.height * 0.87)
+      ..lineTo(24, size.height * 0.82)
+      ..lineTo(39, size.height * 0.82);
+    canvas.drawPath(lower, trace);
+    canvas.drawCircle(Offset(42, size.height * 0.82), 2, trace);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ModuleCircuitPainter oldDelegate) =>
+      oldDelegate.accent != accent || oldDelegate.destacado != destacado;
 }

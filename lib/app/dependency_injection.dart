@@ -1,8 +1,5 @@
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_instance/src/bindings_interface.dart';
 import 'package:pne/app/presentation/gps/gps_impl_helper.dart';
-import 'package:pne/app/presentation/modules/controllers.dart';
 
 import 'core/utils/feactures/di_feactures.dart';
 import 'data/providers/providers_impl.dart';
@@ -11,7 +8,23 @@ import 'domain/repositories/domain_repositories.dart';
 import 'domain/use_cases/evento_use_case.dart';
 
 class DependencyInjection extends Bindings {
-  static ini() {
+  static void ini() {
+    Get.lazyPut<PersonalHotelApiProvider>(
+      () => PersonalHotelApiProviderImpl(),
+      fenix: true,
+    );
+    Get.lazyPut<PersonalHotelRepository>(
+      () => PersonalHotelApiImpl(Get.find()),
+      fenix: true,
+    );
+    Get.lazyPut<AlertasGeneradasCiudadanoApiProvider>(
+      () => AlertasGeneradasCiudadanoApiProviderImpl(),
+      fenix: true,
+    );
+    Get.lazyPut<AlertasGeneradasCiudadanoRepository>(
+      () => AlertasGeneradasCiudadanoApiImpl(Get.find()),
+      fenix: true,
+    );
     Get.lazyPut<AlertasAtendidasPoliciaApiProvider>(
       () => AlertasAtendidasPoliciaApiProviderImpl(),
       fenix: true,

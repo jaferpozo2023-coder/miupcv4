@@ -123,85 +123,18 @@ class _WorkAreaItemsPageWidgetState extends State<WorkAreaItemsPageWidget> {
     );
   }
 
-  AppBar getAppBar(String titleAppBar) {
-    final responsive = ResponsiveUtil();
-
-    return AppBar(
-      backgroundColor: Colors.transparent,
-      systemOverlayStyle: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: const Color(0xFF06245B),
-        systemNavigationBarIconBrightness: Brightness.light,
-      ),
-      elevation: 0,
-      automaticallyImplyLeading: false,
-      centerTitle: true,
-      flexibleSpace: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF06245B), Color(0xFF195BA6)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+  AppBar getAppBar(String titleAppBar) => institutionalAppBar(
+    context,
+    title: titleAppBar,
+    showBackButton: widget.btnAtras,
+    onBack: widget.pantallaIrAtras,
+    image: widget.foto64 == null || widget.foto64!.isEmpty
+        ? null
+        : CircleAvatar(
+            backgroundColor: Colors.white,
+            backgroundImage: MemoryImage(base64Decode(widget.foto64!)),
           ),
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
-        ),
-      ),
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // 🔹 Imagen seleccionada del menú anterior (si existe)
-          if (widget.foto64 != null && widget.foto64!.isNotEmpty)
-            Container(
-              margin: const EdgeInsets.only(right: 10),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.25),
-                    blurRadius: 6,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: CircleAvatar(
-                radius: responsive.altoP(2.8),
-                backgroundColor: Colors.white,
-                backgroundImage: MemoryImage(base64Decode(widget.foto64!)),
-              ),
-            ),
-          // 🔹 Título
-          Flexible(
-            child: Text(
-              titleAppBar,
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                letterSpacing: 0.4,
-              ),
-            ),
-          ),
-        ],
-      ),
-      leading: widget.btnAtras
-          ? Container(
-              margin: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                iconSize: 26,
-                color: Colors.white,
-                tooltip: 'Atrás',
-                onPressed: widget.pantallaIrAtras ?? () => Get.back(),
-              ),
-            )
-          : null,
-    );
-  }
+  );
 
   Widget bannerInferior(ResponsiveUtil responsive) =>
       const InstitutionalSocialFooter();

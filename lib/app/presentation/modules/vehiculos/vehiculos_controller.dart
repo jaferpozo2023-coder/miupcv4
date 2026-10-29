@@ -34,9 +34,7 @@ class VehiculosController extends GetxController {
 
   RxBool consultaRealizada  = false.obs; // se mostró el bloque de campos
 
-
 // (Si los usabas antes, puedes mantener estos RxString, pero ahora los controladores son la fuente de verdad)
-
 
   void limpiarDatosVehiculo() {
     vehiculoEncontrado(false);
@@ -72,7 +70,6 @@ class VehiculosController extends GetxController {
   @override
   void onReady() {
     _init();
-    _initNotificaciones(); // si deseas mantener notificaciones
   }
 
   _init() async {}
@@ -196,75 +193,5 @@ class VehiculosController extends GetxController {
       peticionServerState(false);
       DialogosAwesome.getError(descripcion: e.toString());
     }
-  }
-
-  // ---- Notificaciones (opcional, mantengo tu lógica) ----
-  bool _notificacionesIniciadas = false;
-  void _initNotificaciones() async {
-    if (_notificacionesIniciadas) return;
-    _notificacionesIniciadas = true;
-
-    final messaging = FirebaseMessaging.instance;
-    await messaging.requestPermission();
-    await messaging.subscribeToTopic('upceventos1');
-
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      final titulo = message.notification?.title ?? "Sin título";
-      final cuerpo = message.notification?.body ?? "Sin cuerpo";
-
-      if (titulo.toString() == "WEB") {
-        mostrarSnackbarConEstilo(
-          titulo: titulo,
-          mensaje: cuerpo,
-          icono: Icons.notifications_active_sharp,
-          colorFondo: Colors.red,
-          colorTexto: Colors.white,
-        );
-      } else if (titulo.toString() == "SEGUIMIENTO") {
-        mostrarSnackbarConEstilo(
-          titulo: titulo,
-          mensaje: cuerpo,
-          icono: Icons.notification_add_outlined,
-          colorFondo: Colors.amber,
-          colorTexto: Colors.black,
-        );
-      }
-    });
-  }
-
-  void mostrarSnackbarConEstilo({
-    required String titulo,
-    required String mensaje,
-    IconData icono = Icons.notifications,
-    Color colorFondo = Colors.white,
-    Color colorTexto = Colors.black,
-    Duration duracion = const Duration(seconds: 5),
-  }) {
-    Get.snackbar(
-      titulo,
-      mensaje,
-      icon: Icon(icono, color: Colors.white),
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: colorFondo.withOpacity(0.95),
-      colorText: colorTexto,
-      borderRadius: 12,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      padding: const EdgeInsets.all(16),
-      animationDuration: const Duration(milliseconds: 500),
-      duration: duracion,
-      forwardAnimationCurve: Curves.easeOutBack,
-      reverseAnimationCurve: Curves.easeInBack,
-      overlayBlur: 1.5,
-      boxShadows: [
-        const BoxShadow(
-          color: Colors.black26,
-          offset: Offset(0, 4),
-          blurRadius: 10,
-        ),
-      ],
-      shouldIconPulse: true,
-      isDismissible: true,
-      dismissDirection: DismissDirection.horizontal,
-    );
   }
 }

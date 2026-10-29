@@ -49,27 +49,14 @@ class _WorkAreaMenuPageWidgetState extends State<WorkAreaMenuPageWidget> {
     ],
   );
 
-  AppBar _appBar() => AppBar(
-    backgroundColor: Colors.transparent,
-    foregroundColor: Colors.white,
-    elevation: 0,
-    scrolledUnderElevation: 0,
-    toolbarHeight: 72,
-    systemOverlayStyle: SystemUiOverlayStyle.light.copyWith(
-      statusBarColor: Colors.transparent,
-      systemNavigationBarColor: const Color(0xFF06245B),
-      systemNavigationBarIconBrightness: Brightness.light,
-    ),
-    centerTitle: true,
-    flexibleSpace: const InstitutionalPanel(
-      radius: BorderRadius.vertical(bottom: Radius.circular(24)),
-      colors: [Color(0xFF06245B), Color(0xFF195BA6)],
-      child: SizedBox.expand(),
-    ),
-    leadingWidth: 66,
+  AppBar _appBar() => institutionalAppBar(
+    context,
+    title: 'MI UPC',
+    fontStyle: FontStyle.italic,
+    image: Image.asset(AppImages.imgEdificio, fit: BoxFit.contain),
     leading: Builder(
       builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 6, 14),
+        padding: const EdgeInsets.all(4),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.10),
@@ -83,24 +70,6 @@ class _WorkAreaMenuPageWidgetState extends State<WorkAreaMenuPageWidget> {
           ),
         ),
       ),
-    ),
-    title: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Image.asset(AppImages.imgEdificio, height: 40),
-        const SizedBox(width: 10),
-        const Flexible(
-          child: Text(
-            'MI UPC',
-            style: TextStyle(
-              fontSize: 23,
-              fontWeight: FontWeight.w800,
-              fontStyle: FontStyle.italic,
-              letterSpacing: 0.6,
-            ),
-          ),
-        ),
-      ],
     ),
   );
 
@@ -153,10 +122,16 @@ class _WorkAreaMenuPageWidgetState extends State<WorkAreaMenuPageWidget> {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Cerrar menú',
-                      onPressed: () => Navigator.of(context).pop(),
+                      tooltip: 'Cerrar Aplicación',
+                      onPressed: () {
+                        if (Platform.isAndroid) {
+                          SystemNavigator.pop();
+                        } else if (Platform.isIOS) {
+                          Navigator.of(context).pop();
+                        }
+                      },
                       icon: const Icon(
-                        Icons.close_rounded,
+                        Icons.close,
                         color: Colors.white70,
                       ),
                     ),
@@ -173,7 +148,9 @@ class _WorkAreaMenuPageWidgetState extends State<WorkAreaMenuPageWidget> {
               ConstrainedBox(
                 key: const ValueKey('drawer-bottom-actions'),
                 constraints: BoxConstraints(
-                  maxHeight: constraints.maxHeight * 0.44,
+                  maxHeight:
+                      constraints.maxHeight *
+                      (constraints.maxHeight < 400 ? 0.40 : 0.44),
                 ),
                 child: SingleChildScrollView(
                   key: const ValueKey('drawer-action-scroll'),
@@ -215,6 +192,20 @@ class _WorkAreaMenuPageWidgetState extends State<WorkAreaMenuPageWidget> {
                         },
                       ),
                       const SizedBox(height: 8),
+                      Obx(
+                        () => menuController.mostrarModuloAlertas.value
+                            ? _item(
+                                context,
+                                Icons.volume_up_outlined,
+                                'Sonido de alertas',
+                                'Configurar permisos y probar sonido',
+                                () => Get.dialog<void>(
+                                  const AlertSoundSettingsDialog(),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                      const SizedBox(height: 8),
                       _item(
                         context,
                         Icons.share_outlined,
@@ -232,7 +223,7 @@ class _WorkAreaMenuPageWidgetState extends State<WorkAreaMenuPageWidget> {
                   ),
                 ),
               ),
-              const InstitutionalSocialFooter(),
+              const InstitutionalSocialFooter(showAppInfo: true),
             ],
           ),
         ),
@@ -320,14 +311,6 @@ class _WorkAreaMenuPageWidgetState extends State<WorkAreaMenuPageWidget> {
                     ? 'Sin teléfono registrado'
                     : menuController.telefonoUsuario.value,
               ),
-              if (menuController.documentoUsuario.value.isNotEmpty) ...[
-                _separadorPerfil(),
-                _datoPerfil(
-                  Icons.badge_outlined,
-                  'CÉDULA',
-                  menuController.documentoUsuario.value,
-                ),
-              ],
             ],
           ),
         ),

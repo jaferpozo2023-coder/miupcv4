@@ -2,7 +2,7 @@ class AppImages {
   static const _rutaImg = "assets/img/";
   static const _rutaIcon = "assets/icon/";
   static const _rutaSvg = "assets/svg/";
-  static const _rutaAudio = "audio/";
+  static const _rutaAudio = "assets/audio/";
 
   //-*********************** AUDIO *******************************
   static const audio_Alerta = _rutaAudio + "alerta.mp3";

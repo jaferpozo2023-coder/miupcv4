@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pne/app/presentation/widgets/custom_widgets.dart';
 
 void main() {
-  testWidgets('CargandoWidget muestra solo el icono MI UPC y desenfoca', (
+  testWidgets('CargandoWidget reutiliza el loading del splash y desenfoca', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -17,10 +17,11 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(find.byType(Text), findsNothing);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('CARGANDO'), findsOneWidget);
+    expect(find.byType(Loading), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.byType(BackdropFilter), findsOneWidget);
-    expect(find.byKey(const ValueKey('mi-upc-loading-image')), findsOneWidget);
+    expect(find.byKey(const ValueKey('mi-upc-loading-image')), findsNothing);
     expect(
       find.byKey(const ValueKey('institutional-loading-card')),
       findsNothing,
@@ -54,7 +55,10 @@ void main() {
       ),
       findsNothing,
     );
-    expect(find.byKey(const ValueKey('mi-upc-loading-image')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('institutional-loading-icon')),
+      findsNothing,
+    );
   });
 
   testWidgets('CargandoWidget se adapta a una altura reducida', (tester) async {
@@ -75,8 +79,8 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(find.byType(Text), findsNothing);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('CARGANDO'), findsOneWidget);
+    expect(find.byType(Loading), findsOneWidget);
   });
 
   testWidgets('CargandoWidget queda centrado dentro del area que lo contiene', (

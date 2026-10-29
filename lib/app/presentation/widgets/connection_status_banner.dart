@@ -3,10 +3,7 @@ part of 'custom_widgets.dart';
 class ConnectionStatusBanner extends StatelessWidget {
   final Rx<ConnectionStatus> status;
 
-  const ConnectionStatusBanner({
-    super.key,
-    required this.status,
-  });
+  const ConnectionStatusBanner({super.key, required this.status});
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +14,7 @@ class ConnectionStatusBanner extends StatelessWidget {
         visible: !online,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 400),
-          height: 60,
+          height: 68,
           curve: Curves.easeInOutCubic,
           child: Container(
             width: double.infinity,
@@ -40,12 +37,23 @@ class ConnectionStatusBanner extends StatelessWidget {
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.wifi_off_rounded,
-                        color: Colors.white, size: 26),
-                    SizedBox(width: 10),
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Image(
+                        image: AssetImage(AppImages.imgNoWifi),
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    SizedBox(width: 8),
                     Text(
-                      'Sin conexión a Internet',
+                      'No hay conexión a Internet',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
@@ -69,7 +77,6 @@ class ConnectionStatusBanner extends StatelessWidget {
     });
   }
 }
-
 
 /// 🔹 Línea animada inferior que simula reconexión
 class _AnimatedReconnectLine extends StatefulWidget {
@@ -116,9 +123,7 @@ class _AnimatedReconnectLineState extends State<_AnimatedReconnectLine>
                   Color(0xFFFFC107),
                 ],
               ),
-              borderRadius: BorderRadius.only(
-                topRight: Radius.circular(4),
-              ),
+              borderRadius: BorderRadius.only(topRight: Radius.circular(4)),
             ),
           ),
         );

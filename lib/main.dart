@@ -8,14 +8,35 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'app/dependency_injection.dart';
 import 'app/main_app.dart';
+import 'app/core/services/local_push_notifications.dart';
+import 'app/core/services/push_alert.dart';
+import 'app/core/services/push_notification_service.dart';
 import 'firebase_options.dart';
 
 /// 🧩 Maneja mensajes FCM en segundo plano
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  debugPrint('Notificación Mi UPC recibida en segundo plano.');
+  // FCM ya presenta los mensajes que traen notification; repetirlos los duplica.
+  // Android publica los avisos desde el servicio nativo de FCM, sin esperar a Dart.
+  if (Platform.isAndroid ||
+      message.notification != null ||
+      !PushAlert.hasVisibleContent(message)) {
+    return;
+  }
+  try {
+    final notifications = LocalPushNotifications();
+    await notifications.initialize();
+    await notifications.show(
+      PushAlert.fromRemoteMessage(message),
+      foreground: false,
+    );
+  } catch (error) {
+    debugPrint('No se pudo presentar la notificación en segundo plano: $error');
+  }
 }
+
+
 
 class MyHttpOverrides extends HttpOverrides {
   @override
@@ -39,6 +60,7 @@ Future<void> main() async {
 
   // 🧠 Configurar el handler global para mensajes en segundo plano
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  await PushNotificationService.instance.initialize();
 
   // 🧩 Inicializa dependencias del proyecto
   DependencyInjection();

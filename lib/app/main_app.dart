@@ -9,6 +9,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:material_ui/material_ui.dart' as mui;
 
 import 'dependency_injection.dart';
+import 'presentation/widgets/push_notification_host.dart';
 
 class MainApp extends StatelessWidget {
   const MainApp({Key? key}) : super(key: key);
@@ -16,6 +17,9 @@ class MainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
+      builder: (context, child) => PushNotificationHost(
+        child: child ?? const SizedBox.shrink(),
+      ),
       theme: ThemeData(
         textTheme: const TextTheme(
           displayLarge: TextStyle(

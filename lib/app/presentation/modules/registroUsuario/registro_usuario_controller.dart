@@ -292,9 +292,8 @@ class RegistroUsuarioController extends GetxController
       DialogosAwesome.getSucess(
         title: "Mi UPC",
         descripcion: "Datos cargados desde Google correctamente.",
-        btnOkOnPress: () async {
-          Get.back();
-          Get.offAllNamed(AppRoutes.MENU);
+        btnOkOnPress: () {
+          _cerrarDialogoYRegresarAlMenu();
         },
       );
     } on FirebaseAuthException catch (e) {
@@ -341,13 +340,8 @@ class RegistroUsuarioController extends GetxController
       DialogosAwesome.getSucess(
         title: "Mi UPC",
         descripcion: "Datos cargados desde Facebook correctamente.",
-        btnOkOnPress: () async {
-          Get.back();
-          Get.offAllNamed(AppRoutes.MENU)?.then((_) async {
-            final menuCtrl = Get.find<MenuPrincipalController>();
-            await menuCtrl.cargarDatosUsuario();
-            await menuCtrl.cargarFotoPerfil();
-          });
+        btnOkOnPress: () {
+          _cerrarDialogoYRegresarAlMenu();
         },
       );
     } catch (e) {
@@ -421,6 +415,11 @@ class RegistroUsuarioController extends GetxController
       "correo": "jairo.demo@facebook.com",
       "fotoUrl": "",
     };
+  }
+
+  void _cerrarDialogoYRegresarAlMenu() {
+    if (Get.isDialogOpen == true) Get.back();
+    Get.offAllNamed(AppRoutes.MENU);
   }
 
   Future<void> registrarUsuario() async {
@@ -545,12 +544,8 @@ class RegistroUsuarioController extends GetxController
             : esSocial
             ? "Datos sociales guardados correctamente."
             : "Datos actualizados correctamente.",
-        btnOkOnPress: () async {
-          Get.offAllNamed(AppRoutes.MENU)?.then((_) async {
-            final menuCtrl = Get.find<MenuPrincipalController>();
-            await menuCtrl.cargarDatosUsuario();
-            await menuCtrl.cargarFotoPerfil();
-          });
+        btnOkOnPress: () {
+          _cerrarDialogoYRegresarAlMenu();
         },
       );
     } catch (e) {

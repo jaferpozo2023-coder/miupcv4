@@ -32,6 +32,7 @@ import '../../core/change_notifier/connection_status_change_notifier.dart';
 import '../../core/exceptions/exceptions.dart';
 import '../../core/exceptions/ubicacion_exception.dart';
 import '../../core/services/google_auth_service.dart';
+import '../../core/services/push_notification_service.dart';
 import '../../core/utils/check_internet_conexion.dart';
 import '../../core/utils/deviceNetworkHelper.dart';
 import '../../core/utils/device_info.dart';

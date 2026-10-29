@@ -1,7 +1,25 @@
 part of 'custom_widgets.dart';
 
-class InstitutionalSocialFooter extends StatelessWidget {
-  const InstitutionalSocialFooter({super.key});
+class InstitutionalSocialFooter extends StatefulWidget {
+  final bool showAppInfo;
+
+  const InstitutionalSocialFooter({super.key, this.showAppInfo = false});
+
+  @override
+  State<InstitutionalSocialFooter> createState() =>
+      _InstitutionalSocialFooterState();
+}
+
+class _InstitutionalSocialFooterState extends State<InstitutionalSocialFooter> {
+  late final Future<String> _versionApp;
+
+  @override
+  void initState() {
+    super.initState();
+    _versionApp = widget.showAppInfo
+        ? UtilidadesUtil.getVersionCodeNameApp()
+        : Future.value('');
+  }
 
   @override
   Widget build(BuildContext context) => Container(
@@ -27,30 +45,66 @@ class InstitutionalSocialFooter extends StatelessWidget {
     child: SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        padding: EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: widget.showAppInfo ? 4 : 12,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _InstitutionalSocialButton(
-              asset: AppImages.imgFacebook,
-              name: 'Facebook',
-              url: 'https://www.facebook.com/policia.ecuador',
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _InstitutionalSocialButton(
+                  asset: AppImages.imgFacebook,
+                  name: 'Facebook',
+                  url: 'https://www.facebook.com/policia.ecuador',
+                  compact: widget.showAppInfo,
+                ),
+                _InstitutionalSocialButton(
+                  asset: AppImages.imgTwitter,
+                  name: 'X',
+                  url: 'https://twitter.com/PoliciaEcuador',
+                  compact: widget.showAppInfo,
+                ),
+                _InstitutionalSocialButton(
+                  asset: AppImages.imgInstagran,
+                  name: 'Instagram',
+                  url: 'https://www.instagram.com/policiaecuadoroficial',
+                  compact: widget.showAppInfo,
+                ),
+                _InstitutionalSocialButton(
+                  asset: AppImages.imgYoutube,
+                  name: 'YouTube',
+                  url: 'https://www.youtube.com/user/policiaecuador2',
+                  compact: widget.showAppInfo,
+                ),
+              ],
             ),
-            _InstitutionalSocialButton(
-              asset: AppImages.imgTwitter,
-              name: 'X',
-              url: 'https://twitter.com/PoliciaEcuador',
-            ),
-            _InstitutionalSocialButton(
-              asset: AppImages.imgInstagran,
-              name: 'Instagram',
-              url: 'https://www.instagram.com/policiaecuadoroficial',
-            ),
-            _InstitutionalSocialButton(
-              asset: AppImages.imgYoutube,
-              name: 'YouTube',
-              url: 'https://www.youtube.com/user/policiaecuador2',
-            ),
+            if (widget.showAppInfo) ...[
+              const SizedBox(height: 3),
+              FutureBuilder<String>(
+                future: _versionApp,
+                builder: (context, snapshot) {
+                  final ambiente = switch (AppConfig.AmbienteUrl) {
+                    Ambiente.desarrollo => 'Desarrollo',
+                    Ambiente.prueba => 'Prueba',
+                    Ambiente.produccion => 'Producción',
+                  };
+                  final version = snapshot.data;
+                  return Text(
+                    'Versión ${version ?? '…'}  ·  Ambiente: $ambiente',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.2,
+                    ),
+                  );
+                },
+              ),
+            ],
           ],
         ),
       ),
@@ -62,11 +116,13 @@ class _InstitutionalSocialButton extends StatefulWidget {
   final String asset;
   final String name;
   final String url;
+  final bool compact;
 
   const _InstitutionalSocialButton({
     required this.asset,
     required this.name,
     required this.url,
+    this.compact = false,
   });
 
   @override
@@ -87,8 +143,8 @@ class _InstitutionalSocialButtonState
       child: Material(
         color: Colors.transparent,
         child: Ink(
-          width: 48,
-          height: 48,
+          width: widget.compact ? 42 : 48,
+          height: widget.compact ? 42 : 48,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
@@ -118,7 +174,7 @@ class _InstitutionalSocialButtonState
               mode: LaunchMode.inAppBrowserView,
             ),
             child: Padding(
-              padding: const EdgeInsets.all(11),
+              padding: EdgeInsets.all(widget.compact ? 9 : 11),
               child: Image.asset(widget.asset, fit: BoxFit.contain),
             ),
           ),

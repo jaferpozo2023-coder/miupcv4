@@ -69,14 +69,15 @@ class Modulo {
     required this.imgBase64,
   });
 
+
   factory Modulo.fromJson(Map<String, dynamic> json) => Modulo(
     idUpcModulosMovil: ParseModel.parseToInt(json["idUpcModulosMovil"]),
-    tituloModulo: json["tituloModulo"],
-    descripcionModulo: json["descripcionModulo"],
-    imagenModulo: json["imagenModulo"],
+    tituloModulo: ParseModel.parseToString(json["tituloModulo"]),
+    descripcionModulo: ParseModel.parseToString(json["descripcionModulo"]),
+    imagenModulo: ParseModel.parseToString(json["imagenModulo"]),
     ordenModulo: ParseModel.parseToInt(json["ordenModulo"]),
     idGenEstado: ParseModel.parseToInt(json["idGenEstado"]),
-    imgBase64: json["imgBase64"],
+    imgBase64: ParseModel.parseToString(json["imgBase64"]),
   );
 
   Map<String, dynamic> toJson() => {

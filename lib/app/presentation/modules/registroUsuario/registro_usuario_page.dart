@@ -11,7 +11,7 @@ class RegistroUsuarioPage extends GetView<RegistroUsuarioController> {
         appBar:
             (controller.mostrarFormulario.value ||
                 controller.datosCargados.value)
-            ? _getAppBar('Registro de Usuario')
+            ? _getAppBar(context, 'Registro de Usuario')
             : AppBar(
                 backgroundColor: Colors.transparent,
                 elevation: 0,
@@ -53,36 +53,8 @@ class RegistroUsuarioPage extends GetView<RegistroUsuarioController> {
     });
   }
 
-  AppBar _getAppBar(String titleAppBar) {
-    return AppBar(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      centerTitle: true,
-      flexibleSpace: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF06245B), Color(0xFF6c757d)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
-        ),
-      ),
-      title: Text(
-        titleAppBar,
-        style: const TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          color: Colors.white,
-        ),
-      ),
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
-        tooltip: 'Atrás',
-        onPressed: () => Get.back(),
-      ),
-    );
-  }
+  AppBar _getAppBar(BuildContext context, String titleAppBar) =>
+      institutionalAppBar(context, title: titleAppBar, showBackButton: true);
 
   void abrirModalTipoRegistro() {
     if (controller.modalSeleccionMostrado.value) return;

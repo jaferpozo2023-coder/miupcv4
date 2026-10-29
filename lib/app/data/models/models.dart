@@ -13,6 +13,8 @@ export 'permisos_mi_upc_model.dart';
 export 'alertas_atendidas_policia_model.dart';
 
 export 'alertas_policia_model.dart';
+export 'alertas_generadas_ciudadano_model.dart';
+export 'personal_hotel_model.dart';
 
 part 'parse_model.dart';
 part 'galeryCameraModel.dart';

@@ -30,6 +30,7 @@ import '../../core/values/app_images.dart';
 import '../../data/models/models.dart';
 import '../modules/controllers.dart';
 import '../routes/app_routes.dart';
+import 'alert_sound_settings_dialog.dart';
 
 part 'work_area_login_page_widget.dart';
 part 'img_perfil_redonda_wg.dart';
@@ -43,6 +44,7 @@ part 'DialogosDesingWidget.dart';
 part 'work_area_menu_page_widget.dart';
 part 'institutional_social_footer.dart';
 part 'institutional_panel.dart';
+part 'institutional_app_bar.dart';
 part 'work_area_registro_page_widget.dart';
 part 'work_area_items.dart';
 part 'btnIconWidget.dart';

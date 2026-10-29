@@ -21,6 +21,12 @@ import 'package:pne/app/presentation/widgets/custom_widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _ModulosStub implements ModulosRepository {
+  Future<List<Modulo>> Function()? alBuscar;
+
+  @override
+  Future<List<Modulo>> buscaListaModulos() =>
+      alBuscar?.call() ?? Future.value([]);
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -163,35 +169,197 @@ void main() {
     });
   }
 
-  test(
-    'oculta alertas si falta el permiso de la cuenta o falla su consulta',
-    () async {
-      final menu = Get.put<MenuPrincipalController>(_MenuPrueba());
-      menu.documentoUsuario.value = 'cuenta';
+  testWidgets('el acceso de sonido requiere un permiso de alertas confirmado', (
+    tester,
+  ) async {
+    final menu = Get.put<MenuPrincipalController>(_MenuPrueba());
+    menu.documentoUsuario.value = 'cuenta';
+    await tester.pumpWidget(
+      GetMaterialApp(
+        home: WorkAreaMenuPageWidget(
+          peticionServer: false.obs,
+          contenido: const SizedBox.shrink(),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('Abrir menú'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sonido de alertas'), findsNothing);
+
+    for (final role in ['permisoCiudadano', 'permisoPolicial']) {
       permisos.respuesta = ConsultaPermisosMiUpc(
         codeError: 0,
         msj: '',
         datos: [
           PermisoMiUpc.fromJson({
-            'documento': 'otra',
+            'documento': 'cuenta',
+            'tienePermiso': true,
+            role: true,
+          }),
+        ],
+      );
+      await menu.actualizarPermisosAlertas();
+      await tester.pumpAndSettle();
+      expect(find.text('Sonido de alertas'), findsOneWidget);
+
+      permisos.respuesta = const ConsultaPermisosMiUpc(
+        codeError: 0,
+        msj: '',
+        datos: [],
+      );
+      await menu.actualizarPermisosAlertas();
+      await tester.pumpAndSettle();
+      expect(find.text('Sonido de alertas'), findsNothing);
+    }
+  });
+
+  test(
+    'encola la actualización de módulos si ya hay una consulta activa',
+    () async {
+      final modulos = Get.find<ModulosRepository>() as _ModulosStub;
+      final respuestaInicial = Completer<List<Modulo>>();
+      var llamadas = 0;
+      modulos.alBuscar = () {
+        llamadas++;
+        return llamadas == 1
+            ? respuestaInicial.future
+            : Future.value([
+                Modulo(
+                  descripcionModulo: '',
+                  imgBase64: '',
+                  idGenEstado: 1,
+                  idUpcModulosMovil: 1,
+                  imagenModulo: '',
+                  ordenModulo: 1,
+                  tituloModulo: 'MÓDULO ACTUALIZADO',
+                ),
+              ]);
+      };
+      final menu = Get.put<MenuPrincipalController>(_MenuPrueba());
+      final primeraCarga = menu.cargarDatosLista();
+      await menu.cargarDatosLista(forzar: true);
+
+      expect(llamadas, 1);
+      respuestaInicial.complete([]);
+      await primeraCarga;
+
+      expect(llamadas, 2);
+      expect(menu.listaModulo.single.tituloModulo, 'MÓDULO ACTUALIZADO');
+    },
+  );
+
+  test('no muestra alertas sin un permiso confirmado de la cuenta', () async {
+    final menu = Get.put<MenuPrincipalController>(_MenuPrueba());
+    menu.documentoUsuario.value = 'cuenta';
+    permisos.respuesta = ConsultaPermisosMiUpc(
+      codeError: 0,
+      msj: '',
+      datos: [
+        PermisoMiUpc.fromJson({
+          'documento': 'otra',
+          'tienePermiso': true,
+          'permisoCiudadano': true,
+        }),
+      ],
+    );
+    await menu.actualizarPermisosAlertas();
+    expect(menu.mostrarModuloAlertas.value, isFalse);
+    permisos.respuesta = const ConsultaPermisosMiUpc(
+      codeError: 1,
+      msj: 'Error',
+      datos: [],
+    );
+    await menu.actualizarPermisosAlertas();
+    expect(menu.mostrarModuloAlertas.value, isFalse);
+    permisos.fallo = const SocketException('Sin conexión');
+    await menu.actualizarPermisosAlertas();
+    expect(menu.mostrarModuloAlertas.value, isFalse);
+  });
+
+  for (final falloDeRed in [false, true]) {
+    test(
+      'conserva el permiso confirmado ante ${falloDeRed ? 'un fallo de red' : 'un error del servicio'}',
+      () async {
+        final menu = Get.put<MenuPrincipalController>(_MenuPrueba());
+        menu.documentoUsuario.value = 'cuenta';
+        permisos.respuesta = ConsultaPermisosMiUpc(
+          codeError: 0,
+          msj: '',
+          datos: [
+            PermisoMiUpc.fromJson({
+              'documento': 'cuenta',
+              'tienePermiso': true,
+              'permisoCiudadano': true,
+            }),
+          ],
+        );
+        await menu.actualizarPermisosAlertas();
+        expect(menu.mostrarModuloAlertas.value, isTrue);
+
+        permisos.respuesta = const ConsultaPermisosMiUpc(
+          codeError: 1,
+          msj: 'Servicio no disponible',
+          datos: [],
+        );
+        if (falloDeRed) permisos.fallo = const SocketException('Sin conexión');
+        await menu.actualizarPermisosAlertas();
+        expect(menu.mostrarModuloAlertas.value, isTrue);
+      },
+    );
+  }
+
+  test(
+    'el cambio de cuenta descarta el permiso anterior aunque falle la consulta',
+    () async {
+      SharedPreferences.setMockInitialValues({'USER_CEDULA': 'cuenta'});
+      final menu = Get.put<MenuPrincipalController>(_MenuPrueba());
+      permisos.respuesta = ConsultaPermisosMiUpc(
+        codeError: 0,
+        msj: '',
+        datos: [
+          PermisoMiUpc.fromJson({
+            'documento': 'cuenta',
             'tienePermiso': true,
             'permisoCiudadano': true,
           }),
         ],
       );
-      await menu.actualizarPermisosAlertas();
-      expect(menu.mostrarModuloAlertas.value, isFalse);
-      permisos.respuesta = const ConsultaPermisosMiUpc(
-        codeError: 1,
-        msj: 'Error',
-        datos: [],
-      );
-      menu.mostrarModuloAlertas.value = true;
-      await menu.actualizarPermisosAlertas();
-      expect(menu.mostrarModuloAlertas.value, isFalse);
+      await menu.cargarDatosUsuario();
+      expect(menu.mostrarModuloAlertas.value, isTrue);
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('USER_CEDULA', 'otra-cuenta');
       permisos.fallo = const SocketException('Sin conexión');
-      menu.mostrarModuloAlertas.value = true;
+      await menu.cargarDatosUsuario();
+      expect(menu.documentoUsuario.value, 'otra-cuenta');
+      expect(menu.mostrarModuloAlertas.value, isFalse);
+    },
+  );
+
+  test(
+    'una respuesta antigua no reemplaza una revocación más reciente',
+    () async {
+      final menu = Get.put<MenuPrincipalController>(_MenuPrueba());
+      menu.documentoUsuario.value = 'cuenta';
+      final pendiente = Completer<ConsultaPermisosMiUpc>();
+      permisos.pendiente = pendiente;
+      final consulta = menu.actualizarPermisosAlertas();
+      permisos.pendiente = null;
       await menu.actualizarPermisosAlertas();
+      pendiente.complete(
+        ConsultaPermisosMiUpc(
+          codeError: 0,
+          msj: '',
+          datos: [
+            PermisoMiUpc.fromJson({
+              'documento': 'cuenta',
+              'tienePermiso': true,
+              'permisoCiudadano': true,
+            }),
+          ],
+        ),
+      );
+      await consulta;
       expect(menu.mostrarModuloAlertas.value, isFalse);
     },
   );
@@ -224,55 +392,77 @@ void main() {
     },
   );
 
-  testWidgets('alertas aparece y desaparece sin ocultar los módulos públicos', (
-    tester,
-  ) async {
-    final menu = Get.put<MenuPrincipalController>(_MenuPrueba());
-    menu.listaModulo.assignAll([
-      for (final titulo in [
-        'DENUNCIAS CIUDADANAS',
-        'MEDIDAS DE AUTOPROTECCIÓN',
-      ])
-        Modulo(
-          descripcionModulo: '',
-          imgBase64: '',
-          idGenEstado: 1,
-          idUpcModulosMovil: 1,
-          imagenModulo: '',
-          ordenModulo: 1,
-          tituloModulo: titulo,
-        ),
-    ]);
-    await tester.pumpWidget(const GetMaterialApp(home: MenuPrincipalPage()));
-    await tester.pumpAndSettle();
-    expect(find.text('DENUNCIAS CIUDADANAS'), findsNothing);
-    expect(find.text('MEDIDAS DE AUTOPROTECCIÓN'), findsOneWidget);
-    menu.documentoUsuario.value = 'cuenta';
-    permisos.respuesta = ConsultaPermisosMiUpc(
-      codeError: 0,
-      msj: '',
-      datos: [
-        PermisoMiUpc.fromJson({
-          'documento': 'cuenta',
-          'tienePermiso': true,
-          'permisoCiudadano': true,
-        }),
-      ],
-    );
-    await menu.actualizarPermisosAlertas();
-    await tester.pumpAndSettle();
-    expect(find.text('DENUNCIAS CIUDADANAS'), findsOneWidget);
-    permisos.respuesta = const ConsultaPermisosMiUpc(
-      codeError: 0,
-      msj: '',
-      datos: [],
-    );
-    await menu.actualizarPermisosAlertas();
-    await tester.pumpAndSettle();
-    expect(find.text('DENUNCIAS CIUDADANAS'), findsNothing);
-    expect(find.text('MEDIDAS DE AUTOPROTECCIÓN'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'alertas permanece visible al actualizar y se oculta al revocar el permiso',
+    (tester) async {
+      final menu = Get.put<MenuPrincipalController>(_MenuPrueba());
+      menu.listaModulo.assignAll([
+        for (final titulo in [
+          'DENUNCIAS CIUDADANAS',
+          'MEDIDAS DE AUTOPROTECCIÓN',
+        ])
+          Modulo(
+            descripcionModulo: '',
+            imgBase64: '',
+            idGenEstado: 1,
+            idUpcModulosMovil: 1,
+            imagenModulo: '',
+            ordenModulo: 1,
+            tituloModulo: titulo,
+          ),
+      ]);
+      await tester.pumpWidget(const GetMaterialApp(home: MenuPrincipalPage()));
+      await tester.pumpAndSettle();
+      expect(find.text('DENUNCIAS CIUDADANAS'), findsNothing);
+      expect(find.text('MEDIDAS DE AUTOPROTECCIÓN'), findsOneWidget);
+      menu.documentoUsuario.value = 'cuenta';
+      permisos.respuesta = ConsultaPermisosMiUpc(
+        codeError: 0,
+        msj: '',
+        datos: [
+          PermisoMiUpc.fromJson({
+            'documento': 'cuenta',
+            'tienePermiso': true,
+            'permisoCiudadano': true,
+          }),
+        ],
+      );
+      await menu.actualizarPermisosAlertas();
+      await tester.pumpAndSettle();
+      expect(find.text('DENUNCIAS CIUDADANAS'), findsOneWidget);
+
+      final pendiente = Completer<ConsultaPermisosMiUpc>();
+      permisos.pendiente = pendiente;
+      final actualizacion = menu.actualizarPermisosAlertas();
+      await tester.pump();
+      expect(find.text('DENUNCIAS CIUDADANAS'), findsOneWidget);
+      pendiente.complete(permisos.respuesta);
+      await actualizacion;
+      permisos.pendiente = null;
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('USER_CEDULA', 'cuenta');
+      final perfilPendiente = Completer<ConsultaPermisosMiUpc>();
+      permisos.pendiente = perfilPendiente;
+      final recarga = menu.cargarDatosUsuario();
+      await tester.pumpAndSettle();
+      expect(find.text('DENUNCIAS CIUDADANAS'), findsOneWidget);
+      perfilPendiente.complete(permisos.respuesta);
+      await recarga;
+      permisos.pendiente = null;
+
+      permisos.respuesta = const ConsultaPermisosMiUpc(
+        codeError: 0,
+        msj: '',
+        datos: [],
+      );
+      await menu.actualizarPermisosAlertas();
+      await tester.pumpAndSettle();
+      expect(find.text('DENUNCIAS CIUDADANAS'), findsNothing);
+      expect(find.text('MEDIDAS DE AUTOPROTECCIÓN'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   for (final size in [
     const Size(360, 640),
@@ -394,6 +584,8 @@ void main() {
         expect(tester.takeException(), isNull);
         await tester.tap(find.byTooltip('Abrir menú'));
         await tester.pumpAndSettle();
+        expect(find.textContaining('Versión 1.0.0 - 1'), findsOneWidget);
+        expect(find.textContaining('Ambiente: Desarrollo'), findsOneWidget);
         if (previews && size.width == 390) {
           await _guardarPreview(tester, 'menu-lateral');
         }

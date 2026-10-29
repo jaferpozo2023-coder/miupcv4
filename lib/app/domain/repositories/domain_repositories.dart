@@ -18,6 +18,8 @@ export 'remote/apis/permisos_mi_upc_repository.dart';
 export 'remote/apis/alertas_atendidas_policia_repository.dart';
 
 export 'remote/apis/alertas_policia_repository.dart';
+export 'remote/apis/alertas_generadas_ciudadano_repository.dart';
+export 'remote/apis/personal_hotel_repository.dart';
 
 part 'local/local_storage_repository.dart';
 part 'remote/apis/modulos_repository.dart';

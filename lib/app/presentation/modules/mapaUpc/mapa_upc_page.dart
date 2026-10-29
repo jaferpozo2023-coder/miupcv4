@@ -10,7 +10,7 @@ class MapaUpcPage extends GetView<MapaUpcController> {
     final responsive = ResponsiveUtil();
     return Scaffold(
       bottomNavigationBar: bannerInferior(responsive),
-      appBar: getAppBar('Encuentra la Upc más cercana'),
+      appBar: getAppBar(context, 'Encuentra la UPC más cercana'),
       body: SafeArea(
         child: SingleChildScrollView(
           child: SizedBox(
@@ -324,58 +324,8 @@ class MapaUpcPage extends GetView<MapaUpcController> {
     );
   }
 
-  AppBar getAppBar(String titleAppBar) {
-    return AppBar(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      centerTitle: true,
-      flexibleSpace: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF06245B), Colors.grey.shade600],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: const BorderRadius.vertical(
-            bottom: Radius.circular(20),
-          ),
-        ),
-      ),
-      title: Text(
-        titleAppBar,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          color: Colors.white,
-        ),
-      ),
-      leading: Builder(
-        builder: (BuildContext context) {
-          return Container(
-            margin: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.transparent,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              iconSize: 30,
-              color: Colors.white,
-              tooltip: 'Atrás',
-              onPressed: () => Get.back(),
-            ),
-          );
-        },
-      ),
-    );
-  }
+  AppBar getAppBar(BuildContext context, String titleAppBar) =>
+      institutionalAppBar(context, title: titleAppBar, showBackButton: true);
 
   Widget bannerInferior(ResponsiveUtil responsive) {
     return Container(
