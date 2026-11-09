@@ -419,7 +419,7 @@ class MenuPrincipalController extends GetxController
       default:
         return {
           'icono': Icons.badge_rounded,
-          'titulo': 'Perfil local',
+          'titulo': 'Datos de Usuario',
           'subtitulo': 'Identidad registrada',
           'color': const Color(0xFF00B8A9),
         };
@@ -466,8 +466,9 @@ class MenuPrincipalController extends GetxController
       correoUsuario.value = (data?['correo'] ?? '').toString().trim();
       if (correoUsuario.value.isEmpty) correoUsuario.value = mailAlterno;
       telefonoUsuario.value = (data?['telefono'] ?? '').toString().trim();
-      if (telefonoUsuario.value.isEmpty)
+      if (telefonoUsuario.value.isEmpty) {
         telefonoUsuario.value = telefonoAlterno;
+      }
       metodoRegistro.value = metodo;
 
       // La validación remota se realiza en segundo plano y actualiza la caché.

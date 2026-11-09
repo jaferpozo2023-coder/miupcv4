@@ -1,0 +1,4 @@
+cat > ios/Flutter/Profile.xcconfig <<'EOF'
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"
+#include "Generated.xcconfig"
+EOF

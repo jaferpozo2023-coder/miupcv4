@@ -3,6 +3,8 @@
 *.log
 *.pyc
 *.swp
+.DS_Store
+.idea/
 .buildlog/
 .history
 
@@ -31,6 +33,7 @@ android/app/release/
 
 # iOS
 ios/Pods/
+ios/**/xcshareddata/swiftpm/
 
 # Flutter generated files
 /build/
